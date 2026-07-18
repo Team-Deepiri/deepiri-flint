@@ -6,14 +6,12 @@ on:
   pull_request:
     branches: [main, dev]
 
-permissions:
-  contents: read
-
 jobs:
   build-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Install Zig 0.13.0
         run: |
@@ -22,16 +20,12 @@ jobs:
             "https://ziglang.org/download/0.13.0/zig-linux-x86_64-0.13.0.tar.xz"
           sudo tar -C /usr/local -xf /tmp/zig.tar.xz
           echo "/usr/local/zig-linux-x86_64-0.13.0" >> "$GITHUB_PATH"
-          zig version
 
-      - name: Build
-        run: zig build -Doptimize=ReleaseSafe
-
-      - name: Test
-        run: zig build test
-
-      - name: Smoke CLI
+      - name: Build and test
         run: |
+          zig version
+          zig build -Doptimize=ReleaseSafe
+          zig build test
           ./zig-out/bin/flint version
           ./zig-out/bin/flint doctor
           ./zig-out/bin/flint strike document.artifacts document.artifacts.route

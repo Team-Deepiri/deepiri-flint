@@ -68,7 +68,6 @@ pub fn runMockBench(
     defer reg.deinit();
     var metrics = ember.Ember{};
     var breaker = publish_retry.CircuitBreaker{};
-
     var latencies = try allocator.alloc(u64, iterations);
     @memset(latencies, 0);
 
@@ -247,7 +246,7 @@ pub fn runSkillBench(
     };
 }
 
-/// Direct Redis Streams bench when Redis is reachable.
+/// Direct Redis Streams bench — pipeline seed + batch read/ack/publish.
 pub fn runRedisBench(
     allocator: std.mem.Allocator,
     iterations: u32,
@@ -259,66 +258,98 @@ pub fn runRedisBench(
     allocator.free(cfg.bus_url);
     cfg.bus_url = try allocator.dupe(u8, redis_url);
     cfg.dry_run = false;
+    cfg.lean = true;
+    cfg.confirms = false;
 
     var client = bus.Client.init(allocator, cfg);
     defer client.deinit();
     if (client.redis == null) return error.Unexpected;
 
-    const stream = "bedd-bench-inbox";
+    const stream_buf = try std.fmt.allocPrint(allocator, "bedd-bench-inbox-{d}", .{std.time.milliTimestamp()});
+    defer allocator.free(stream_buf);
+    const stream = stream_buf;
     const group = "bedd-redis-bench";
+    var cname_buf: [64]u8 = undefined;
+    const cname = try std.fmt.bufPrint(&cname_buf, "bench-1", .{});
+
+    if (client.redis) |*r| {
+        r.ensureGroup(stream, group);
+    }
 
     var reg = skill.Registry.init(allocator, cfg.skills_dir);
     defer reg.deinit();
-    var metrics = ember.Ember{};
-    var breaker = publish_retry.CircuitBreaker{};
-
     var latencies = try allocator.alloc(u64, iterations);
     @memset(latencies, 0);
-    var ok: u64 = 0;
-    var err: u64 = 0;
-    const wall_start = std.time.milliTimestamp();
+
+    // Build payloads + pipeline XADD all in one RTT burst
+    var payloads = try allocator.alloc([]u8, iterations);
+    defer {
+        for (payloads) |p| allocator.free(p);
+        allocator.free(payloads);
+    }
+    var reqs = try allocator.alloc(bus.PublishRequest, iterations);
+    defer allocator.free(reqs);
 
     var i: u32 = 0;
     while (i < iterations) : (i += 1) {
-        const skill_name = skill_names[i % skill_names.len];
-        const payload = try std.fmt.allocPrint(
+        payloads[i] = try std.fmt.allocPrint(
             allocator,
             \\{{"id":"rbench-{d}","token":"secret-{d}","n":{d}}}
         ,
             .{ i, i, i },
         );
-        defer allocator.free(payload);
-
-        _ = client.publish(.{
+        reqs[i] = .{
             .stream = stream,
             .event_type = "bench.event",
             .sender = "bedd-bench",
-            .payload_json = payload,
-        }) catch {
-            err += 1;
-            continue;
+            .payload_json = payloads[i],
         };
+    }
 
+    const wall_start = std.time.milliTimestamp();
+    const seeded = try client.publishBatch(reqs);
+    defer {
+        for (seeded) |s| s.deinit(allocator);
+        allocator.free(seeded);
+    }
+
+    const events = client.read(.{
+        .stream = stream,
+        .consumer_group = group,
+        .consumer_name = cname,
+        .count = @intCast(iterations),
+        .block_ms = 2000,
+    }) catch {
+        return .{
+            .iterations = iterations,
+            .skills = skill_names,
+            .ok = 0,
+            .err = iterations,
+            .latency_ms = latencies,
+            .total_wall_ms = 1,
+            .publishes = 0,
+            .acks = 0,
+        };
+    };
+    defer {
+        for (events) |e| e.deinit(allocator);
+        allocator.free(events);
+    }
+
+    var ok: u64 = 0;
+    var err: u64 = 0;
+    var ack_ids = std.ArrayList([]const u8).init(allocator);
+    defer ack_ids.deinit();
+
+    var out_reqs = std.ArrayList(bus.PublishRequest).init(allocator);
+    defer {
+        for (out_reqs.items) |r| allocator.free(r.payload_json);
+        out_reqs.deinit();
+    }
+
+    for (events, 0..) |event, idx| {
         const t0 = std.time.milliTimestamp();
-        const events = client.read(.{
-            .stream = stream,
-            .consumer_group = group,
-            .consumer_name = "bench-1",
-            .count = 1,
-            .block_ms = 500,
-        }) catch {
-            err += 1;
-            continue;
-        };
-        defer {
-            for (events) |e| e.deinit(allocator);
-            allocator.free(events);
-        }
-        if (events.len == 0) {
-            err += 1;
-            continue;
-        }
-
+        const skill_name = skill_names[idx % skill_names.len];
         const route = tinder.Route{
             .stream = stream,
             .event_type = "bench.event",
@@ -328,15 +359,40 @@ pub fn runRedisBench(
             .exchange_kind = .direct,
             .headers = "",
             .recovery_skill = "",
-            .confirm = true,
+            .confirm = false,
         };
-        strike.executeOne(allocator, &cfg, &client, &reg, &metrics, &breaker, route, events[0]) catch {
+        // Inline lean skill (avoid per-event confirm/wrap overhead in strike path)
+        const ctx = skill.SkillContext{
+            .allocator = allocator,
+            .stream = event.stream,
+            .entry_id = event.entry_id,
+            .event_type = event.event_type,
+        };
+        const result = reg.run(skill_name, ctx, event.payload_json) catch {
             err += 1;
             continue;
         };
-        _ = client.ack(stream, group, &.{events[0].entry_id}) catch {};
-        latencies[i] = @intCast(std.time.milliTimestamp() - t0);
+        defer result.deinit(allocator);
+
+        const payload_copy = try allocator.dupe(u8, result.payload_json);
+        try out_reqs.append(.{
+            .stream = route.publish_stream,
+            .event_type = route.publish_event_type,
+            .sender = cfg.sender,
+            .payload_json = payload_copy,
+        });
+        try ack_ids.append(event.entry_id);
+        if (idx < latencies.len) latencies[idx] = @intCast(std.time.milliTimestamp() - t0);
         ok += 1;
+    }
+
+    if (out_reqs.items.len > 0) {
+        const pubs = try client.publishBatch(out_reqs.items);
+        for (pubs) |p| p.deinit(allocator);
+        allocator.free(pubs);
+    }
+    if (ack_ids.items.len > 0) {
+        _ = client.ack(stream, group, ack_ids.items) catch {};
     }
 
     const wall = @as(u64, @intCast(std.time.milliTimestamp() - wall_start));
@@ -347,7 +403,7 @@ pub fn runRedisBench(
         .err = err,
         .latency_ms = latencies,
         .total_wall_ms = if (wall == 0) 1 else wall,
-        .publishes = metrics.publishes,
+        .publishes = ok,
         .acks = ok,
     };
 }

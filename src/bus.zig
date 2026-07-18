@@ -152,6 +152,22 @@ pub const Client = struct {
         };
     }
 
+    /// Redis pipeline batch publish; HTTP falls back to sequential.
+    pub fn publishBatch(self: *Client, reqs: []const PublishRequest) ![]PublishResult {
+        if (self.redis) |*r| {
+            return r.publishBatch(reqs) catch return BusError.RedisFailed;
+        }
+        var out = try self.allocator.alloc(PublishResult, reqs.len);
+        errdefer {
+            for (out) |*p| p.deinit(self.allocator);
+            self.allocator.free(out);
+        }
+        for (reqs, 0..) |req, i| {
+            out[i] = try self.publish(req);
+        }
+        return out;
+    }
+
     pub fn read(self: *Client, req: ReadRequest) ![]StreamEvent {
         if (self.redis) |*r| {
             return r.read(req) catch return BusError.RedisFailed;

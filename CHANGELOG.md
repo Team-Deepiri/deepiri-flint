@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.2 — exchange
+- Redis pipeline `publishBatch` + TCP_NODELAY
+- `bedd filter --jobs N` parallel workers
+- Lean defaults on redis://; higher default prefetch
+- `scripts/perf-levers.sh` multi-lever report
+
 ## 0.8.1 — exchange
 - Hot-path speedups: in-place redact, lean filter output, arena + buffered IO, ReleaseFast install
 - Faster `drop_fields` single-pass; builtin lookup helper for filter

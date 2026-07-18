@@ -5,7 +5,7 @@
 #   BEDD_VERSION=0.6.0 ./install.sh
 set -euo pipefail
 
-BEDD_VERSION="${BEDD_VERSION:-0.8.1}"
+BEDD_VERSION="${BEDD_VERSION:-0.8.2}"
 BEDD_INSTALL="${BEDD_INSTALL:-$HOME/.bedd}"
 BIN_DIR="${BEDD_INSTALL}/bin"
 REPO="${BEDD_REPO:-Team-Deepiri/deepiri-bedd}"

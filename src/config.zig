@@ -72,11 +72,13 @@ pub fn loadFromEnv(allocator: std.mem.Allocator) !Config {
 
     const timeout_ms = parseU64(std.posix.getenv("BEDD_TIMEOUT_MS"), 5000);
     const block_ms: i64 = @intCast(parseU64(std.posix.getenv("BEDD_BLOCK_MS"), 2000));
-    const read_count: i64 = @intCast(parseU64(std.posix.getenv("BEDD_READ_COUNT"), 10));
+    const read_count: i64 = @intCast(parseU64(std.posix.getenv("BEDD_READ_COUNT"), 32));
     const prefetch: i64 = @intCast(parseU64(std.posix.getenv("BEDD_PREFETCH"), @intCast(read_count)));
     const dry_run = parseBool(std.posix.getenv("BEDD_DRY_RUN"), false);
-    const lean = parseBool(std.posix.getenv("BEDD_LEAN"), false);
-    const confirms = parseBool(std.posix.getenv("BEDD_CONFIRMS"), true);
+    // Lean by default on redis:// (skip wrap envelope on the hot path).
+    const lean_default = std.mem.startsWith(u8, url, "redis://") or std.mem.startsWith(u8, url, "rediss://");
+    const lean = parseBool(std.posix.getenv("BEDD_LEAN"), lean_default);
+    const confirms = parseBool(std.posix.getenv("BEDD_CONFIRMS"), !lean_default);
     const admin_port: u16 = @intCast(parseU64(std.posix.getenv("BEDD_ADMIN_PORT"), 9108));
 
     return .{

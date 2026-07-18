@@ -28,6 +28,14 @@ pub const Conn = struct {
         if (list.addrs.len == 0) return RedisError.ConnectFailed;
 
         const stream = std.net.tcpConnectToAddress(list.addrs[0]) catch return RedisError.ConnectFailed;
+        // TCP_NODELAY — cut small-packet latency on the hot path
+        std.posix.setsockopt(
+            stream.handle,
+            std.posix.IPPROTO.TCP,
+            std.posix.TCP.NODELAY,
+            &std.mem.toBytes(@as(c_int, 1)),
+        ) catch {};
+
         var conn: Conn = .{
             .allocator = allocator,
             .stream = stream,
@@ -79,9 +87,47 @@ pub const Conn = struct {
         return .{ .entry_id = id, .queued = false };
     }
 
+    /// Pipeline many XADDs in one write / N reads — big RTT win for batch publish.
+    pub fn publishBatch(self: *Conn, reqs: []const bus.PublishRequest) RedisError![]bus.PublishResult {
+        if (reqs.len == 0) return try self.allocator.alloc(bus.PublishResult, 0);
+        var buf = std.ArrayList(u8).init(self.allocator);
+        defer buf.deinit();
+        for (reqs) |req| {
+            try appendResp(&buf, &.{
+                "XADD",
+                req.stream,
+                "*",
+                "event_type",
+                req.event_type,
+                "sender",
+                req.sender,
+                "priority",
+                req.priority,
+                "payload",
+                req.payload_json,
+            });
+        }
+        self.stream.writeAll(buf.items) catch return RedisError.IoFailed;
+
+        var out = try self.allocator.alloc(bus.PublishResult, reqs.len);
+        errdefer {
+            for (out[0..]) |*r| {
+                if (r.entry_id.len > 0) self.allocator.free(r.entry_id);
+            }
+            self.allocator.free(out);
+        }
+        for (out) |*slot| {
+            const raw = try self.readReply();
+            const id = try parseBulkOrSimple(self.allocator, raw);
+            self.allocator.free(raw);
+            slot.* = .{ .entry_id = id, .queued = false };
+        }
+        return out;
+    }
+
     pub fn ensureGroup(self: *Conn, stream_name: []const u8, group: []const u8) void {
-        // Ignore BUSYGROUP / other create races.
-        if (self.cmdSimple(&.{ "XGROUP", "CREATE", stream_name, group, "$", "MKSTREAM" })) |r| {
+        // Start at 0 so already-written entries are readable (not only post-create).
+        if (self.cmdSimple(&.{ "XGROUP", "CREATE", stream_name, group, "0", "MKSTREAM" })) |r| {
             self.allocator.free(r);
         } else |_| {}
     }
@@ -174,27 +220,61 @@ pub const Conn = struct {
     fn cmdRaw(self: *Conn, parts: []const []const u8) RedisError![]u8 {
         var req = std.ArrayList(u8).init(self.allocator);
         defer req.deinit();
-        try req.writer().print("*{d}\r\n", .{parts.len});
-        for (parts) |p| {
-            try req.writer().print("${d}\r\n{s}\r\n", .{ p.len, p });
-        }
+        try appendResp(&req, parts);
         self.stream.writeAll(req.items) catch return RedisError.IoFailed;
         return try self.readReply();
     }
 
     fn readReply(self: *Conn) RedisError![]u8 {
-        self.reader_buf.clearRetainingCapacity();
-        var tmp: [4096]u8 = undefined;
+        var tmp: [8192]u8 = undefined;
         while (true) {
+            var i: usize = 0;
+            if (respComplete(self.reader_buf.items) and consumeResp(self.reader_buf.items, &i)) {
+                const one = try self.allocator.dupe(u8, self.reader_buf.items[0..i]);
+                const rest = self.reader_buf.items[i..];
+                if (rest.len > 0) {
+                    var next = std.ArrayList(u8).init(self.allocator);
+                    try next.appendSlice(rest);
+                    self.reader_buf.deinit();
+                    self.reader_buf = next;
+                } else {
+                    self.reader_buf.clearRetainingCapacity();
+                }
+                return one;
+            }
             const n = self.stream.read(&tmp) catch return RedisError.IoFailed;
             if (n == 0) return RedisError.IoFailed;
             try self.reader_buf.appendSlice(tmp[0..n]);
-            if (respComplete(self.reader_buf.items)) break;
             if (self.reader_buf.items.len > 8 * 1024 * 1024) return RedisError.Protocol;
         }
-        return try self.allocator.dupe(u8, self.reader_buf.items);
     }
 };
+
+fn appendResp(buf: *std.ArrayList(u8), parts: []const []const u8) !void {
+    try buf.writer().print("*{d}\r\n", .{parts.len});
+    for (parts) |p| {
+        try buf.writer().print("${d}\r\n{s}\r\n", .{ p.len, p });
+    }
+}
+
+fn parseBulkOrSimple(allocator: std.mem.Allocator, raw: []const u8) RedisError![]u8 {
+    if (raw.len == 0) return RedisError.BadReply;
+    if (raw[0] == '-') return RedisError.BadReply;
+    if (raw[0] == '+' or raw[0] == ':') {
+        const end = std.mem.indexOf(u8, raw, "\r\n") orelse raw.len;
+        return try allocator.dupe(u8, raw[1..end]);
+    }
+    if (raw[0] == '$') {
+        const nl = std.mem.indexOf(u8, raw, "\r\n") orelse return RedisError.Protocol;
+        const n = std.fmt.parseInt(i64, raw[1..nl], 10) catch return RedisError.Protocol;
+        if (n < 0) return try allocator.dupe(u8, "");
+        const start = nl + 2;
+        const end = start + @as(usize, @intCast(n));
+        if (end > raw.len) return RedisError.Protocol;
+        return try allocator.dupe(u8, raw[start..end]);
+    }
+    return try allocator.dupe(u8, raw);
+}
 
 const ParsedUrl = struct { host: []const u8, port: u16, db: u8 };
 

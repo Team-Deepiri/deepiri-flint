@@ -62,14 +62,23 @@ pub fn main() !void {
     }
     if (eql(command, "filter")) {
         const skill_name = args.next() orelse {
-            try std.io.getStdErr().writer().writeAll("usage: bedd filter <skill> [--raw]  # NDJSON stdin→stdout\n");
+            try std.io.getStdErr().writer().writeAll("usage: bedd filter <skill> [--raw] [--jobs N]\n");
             std.process.exit(2);
         };
         var raw = false;
+        var jobs: u32 = 1;
+        if (std.posix.getenv("BEDD_FILTER_JOBS")) |j| {
+            jobs = std.fmt.parseInt(u32, j, 10) catch 1;
+        }
         while (args.next()) |a| {
             if (eql(a, "--raw")) raw = true;
+            if (eql(a, "--jobs") or eql(a, "-j")) {
+                const v = args.next() orelse "1";
+                jobs = std.fmt.parseInt(u32, v, 10) catch 1;
+            }
         }
-        try filter.run(allocator, cfg.skills_dir, skill_name, raw);
+        if (jobs == 0) jobs = 1;
+        try filter.run(allocator, cfg.skills_dir, skill_name, raw, jobs);
         return;
     }
     if (eql(command, "tinder")) {
@@ -219,7 +228,7 @@ fn printHelp() !void {
         \\  bedd doctor
         \\  bedd skills
         \\  bedd eval <skill> '<json>'|@file.json
-        \\  bedd filter <skill> [--raw]          # NDJSON stdin→stdout (use inside workers)
+        \\  bedd filter <skill> [--raw] [--jobs N]  # NDJSON; -j for parallel workers
         \\  bedd tinder validate [path]
         \\  bedd strike [stream] [event_type] [skill]
         \\  bedd demo

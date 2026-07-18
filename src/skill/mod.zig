@@ -85,11 +85,17 @@ pub const Registry = struct {
         }
     }
 
-    pub fn run(self: *Registry, name: []const u8, ctx: SkillContext, input_json: []const u8) SkillError!SkillResult {
+    /// O(1)-ish builtin resolve for filter hot path.
+    pub fn lookupBuiltin(name: []const u8) ?SkillFn {
         for (builtins) |s| {
-            if (std.mem.eql(u8, s.name, name)) {
-                return s.run(ctx, input_json);
-            }
+            if (std.mem.eql(u8, s.name, name)) return s.run;
+        }
+        return null;
+    }
+
+    pub fn run(self: *Registry, name: []const u8, ctx: SkillContext, input_json: []const u8) SkillError!SkillResult {
+        if (lookupBuiltin(name)) |fn_ptr| {
+            return fn_ptr(ctx, input_json);
         }
 
         if (self.wasm_cache.getPtr(name)) |skill| {

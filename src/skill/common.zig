@@ -9,47 +9,79 @@ pub const secret_keys = [_][]const u8{
     "authorization", "access_key", "private_key", "credential",
 };
 
-/// Redact known secret-ish string values in a JSON blob (best-effort scan).
+/// Fast redact: one allocation, in-place mask + memmove (no per-match realloc).
 pub fn redactSecrets(allocator: std.mem.Allocator, input: []const u8) ![]u8 {
     var out = try allocator.dupe(u8, input);
     errdefer allocator.free(out);
+    var len = out.len;
 
     for (secret_keys) |key| {
+        var needle_buf: [64]u8 = undefined;
+        if (key.len + 2 > needle_buf.len) continue;
+        needle_buf[0] = '"';
+        @memcpy(needle_buf[1 .. 1 + key.len], key);
+        needle_buf[1 + key.len] = '"';
+        const needle = needle_buf[0 .. key.len + 2];
+
         var search_from: usize = 0;
-        while (search_from < out.len) {
-            const needle = try std.fmt.allocPrint(allocator, "\"{s}\"", .{key});
-            defer allocator.free(needle);
-            const idx = std.mem.indexOfPos(u8, out, search_from, needle) orelse break;
-            // Find following string value and replace with "***"
+        while (search_from < len) {
+            const idx = std.mem.indexOfPos(u8, out[0..len], search_from, needle) orelse break;
             var j = idx + needle.len;
-            while (j < out.len and (out[j] == ' ' or out[j] == '\t' or out[j] == ':')) : (j += 1) {}
-            if (j >= out.len or out[j] != '"') {
+            while (j < len and (out[j] == ' ' or out[j] == '\t' or out[j] == ':')) : (j += 1) {}
+            if (j >= len or out[j] != '"') {
                 search_from = idx + 1;
                 continue;
             }
-            const val_start = j;
+            const val_start = j; // opening quote
             j += 1;
-            while (j < out.len) : (j += 1) {
+            while (j < len) : (j += 1) {
                 if (out[j] == '\\') {
                     j += 1;
                     continue;
                 }
                 if (out[j] == '"') break;
             }
-            if (j >= out.len) break;
-            const val_end = j + 1; // inclusive end quote+1
-            // Rebuild with ***
-            var rebuilt = std.ArrayList(u8).init(allocator);
-            defer rebuilt.deinit();
-            try rebuilt.appendSlice(out[0 .. val_start + 1]);
-            try rebuilt.appendSlice("***");
-            try rebuilt.appendSlice(out[val_end - 1 ..]);
-            allocator.free(out);
-            out = try rebuilt.toOwnedSlice();
-            search_from = val_start + 4;
+            if (j >= len) break;
+            const content_start = val_start + 1;
+            const content_end = j; // exclusive; closing quote at j
+            const old_len = content_end - content_start;
+            const mask = "***";
+            // Write mask; shrink/grow with memmove
+            if (old_len == mask.len) {
+                @memcpy(out[content_start..][0..mask.len], mask);
+                search_from = content_start + mask.len + 1;
+            } else if (old_len > mask.len) {
+                @memcpy(out[content_start..][0..mask.len], mask);
+                const drop = old_len - mask.len;
+                const from = content_end;
+                const to = content_start + mask.len;
+                std.mem.copyForwards(u8, out[to .. len - drop], out[from..len]);
+                len -= drop;
+                search_from = to + 1;
+            } else {
+                // grow: need more space
+                const need = mask.len - old_len;
+                const new_len = len + need;
+                out = try allocator.realloc(out, new_len);
+                std.mem.copyBackwards(u8, out[content_end + need .. new_len], out[content_end..len]);
+                @memcpy(out[content_start..][0..mask.len], mask);
+                len = new_len;
+                search_from = content_start + mask.len + 1;
+            }
         }
     }
+
+    if (len != out.len) {
+        out = try allocator.realloc(out, len);
+    }
     return out;
+}
+
+pub fn leanMode(ctx: skill.SkillContext) bool {
+    if (std.posix.getenv("BEDD_LEAN")) |v| {
+        if (v.len > 0 and v[0] != '0' and !std.ascii.eqlIgnoreCase(v, "false")) return true;
+    }
+    return std.mem.eql(u8, ctx.stream, "filter");
 }
 
 pub fn wrapSkill(
@@ -95,4 +127,14 @@ test "redactSecrets masks token" {
     defer std.testing.allocator.free(out);
     try std.testing.expect(std.mem.indexOf(u8, out, "***") != null);
     try std.testing.expect(std.mem.indexOf(u8, out, "abc") == null);
+}
+
+test "redactSecrets long secret" {
+    const in =
+        \\{"token":"super-long-secret-value","ok":true}
+    ;
+    const out = try redactSecrets(std.testing.allocator, in);
+    defer std.testing.allocator.free(out);
+    try std.testing.expect(std.mem.indexOf(u8, out, "super-long") == null);
+    try std.testing.expectEqualStrings("{\"token\":\"***\",\"ok\":true}", out);
 }

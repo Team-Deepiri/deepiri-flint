@@ -5,7 +5,7 @@
 #   BEDD_VERSION=0.6.0 ./install.sh
 set -euo pipefail
 
-BEDD_VERSION="${BEDD_VERSION:-0.8.0}"
+BEDD_VERSION="${BEDD_VERSION:-0.8.1}"
 BEDD_INSTALL="${BEDD_INSTALL:-$HOME/.bedd}"
 BIN_DIR="${BEDD_INSTALL}/bin"
 REPO="${BEDD_REPO:-Team-Deepiri/deepiri-bedd}"
@@ -26,9 +26,11 @@ if command -v bedd >/dev/null 2>&1 && [[ "${BEDD_FORCE:-}" != "1" ]]; then
 fi
 
 # Prefer building from a local checkout when present (dev).
+# ReleaseFast for runtime throughput (filter / serve hot paths).
+OPTIMIZE="${BEDD_OPTIMIZE:-ReleaseFast}"
 if [[ -f "./build.zig" ]] && command -v zig >/dev/null 2>&1; then
-  echo "building bedd from local tree…"
-  zig build -Doptimize=ReleaseSafe -Dcpu=baseline
+  echo "building bedd from local tree (${OPTIMIZE})…"
+  zig build -Doptimize="${OPTIMIZE}" -Dcpu=baseline
   install -m 755 ./zig-out/bin/bedd "$BIN_DIR/bedd"
 else
   echo "fetching release asset bedd-${OS}-${ARCH} v${BEDD_VERSION}…"

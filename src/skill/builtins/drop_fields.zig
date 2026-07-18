@@ -3,19 +3,29 @@ const skill = @import("../mod.zig");
 
 pub const skill_name = "drop_fields";
 
-/// Drop top-level JSON object keys listed in BEDD_DROP_FIELDS (comma-separated).
-/// Default: token,password,secret,authorization,api_key,ssn,credit_card
-pub fn run(ctx: skill.SkillContext, input_json: []const u8) skill.SkillError!skill.SkillResult {
-    const keys = loadDropKeys(ctx.allocator) catch return skill.SkillError.OutOfMemory;
-    defer freeKeys(ctx.allocator, keys);
+const default_keys = [_][]const u8{
+    "token", "password", "secret", "authorization", "api_key", "ssn", "credit_card",
+};
 
-    const cleaned = dropKeys(ctx.allocator, input_json, keys) catch return skill.SkillError.OutOfMemory;
+pub fn run(ctx: skill.SkillContext, input_json: []const u8) skill.SkillError!skill.SkillResult {
+    var owned: ?[][]const u8 = null;
+    defer if (owned) |k| freeKeys(ctx.allocator, k);
+
+    const keys: []const []const u8 = blk: {
+        if (std.posix.getenv("BEDD_DROP_FIELDS")) |raw| {
+            if (raw.len > 0) {
+                owned = loadDropKeys(ctx.allocator, raw) catch return skill.SkillError.OutOfMemory;
+                break :blk owned.?;
+            }
+        }
+        break :blk &default_keys;
+    };
+
+    const cleaned = dropKeysFast(ctx.allocator, input_json, keys) catch return skill.SkillError.OutOfMemory;
     return .{ .payload_json = cleaned };
 }
 
-fn loadDropKeys(allocator: std.mem.Allocator) ![][]const u8 {
-    const raw = std.posix.getenv("BEDD_DROP_FIELDS") orelse
-        "token,password,secret,authorization,api_key,ssn,credit_card";
+fn loadDropKeys(allocator: std.mem.Allocator, raw: []const u8) ![][]const u8 {
     var list = std.ArrayList([]const u8).init(allocator);
     errdefer {
         for (list.items) |k| allocator.free(k);
@@ -35,57 +45,88 @@ fn freeKeys(allocator: std.mem.Allocator, keys: [][]const u8) void {
     allocator.free(keys);
 }
 
-/// Best-effort: remove `"key":...` pairs at any depth (string scan).
-fn dropKeys(allocator: std.mem.Allocator, input: []const u8, keys: []const []const u8) ![]u8 {
-    var out = try allocator.dupe(u8, input);
-    errdefer allocator.free(out);
-
-    for (keys) |key| {
-        var search_from: usize = 0;
-        while (search_from < out.len) {
-            const needle = try std.fmt.allocPrint(allocator, "\"{s}\"", .{key});
-            defer allocator.free(needle);
-            const idx = std.mem.indexOfPos(u8, out, search_from, needle) orelse break;
-
-            // Find start of `"key"` and end of its value, then also a preceding/trailing comma.
-            const key_start = idx;
-            var j = idx + needle.len;
-            while (j < out.len and (out[j] == ' ' or out[j] == '\t' or out[j] == '\n' or out[j] == '\r' or out[j] == ':')) : (j += 1) {}
-            if (j >= out.len) {
-                search_from = idx + 1;
-                continue;
-            }
-
-            const val_end = skipJsonValue(out, j) orelse {
-                search_from = idx + 1;
-                continue;
-            };
-
-            // Include trailing comma if present
-            var end = val_end;
-            while (end < out.len and (out[end] == ' ' or out[end] == '\t')) : (end += 1) {}
-            if (end < out.len and out[end] == ',') end += 1;
-
-            // Or leading comma if no trailing
-            var start = key_start;
-            if (end == val_end or (end > 0 and out[end - 1] != ',')) {
-                var back = key_start;
-                while (back > 0 and (out[back - 1] == ' ' or out[back - 1] == '\t' or out[back - 1] == '\n')) : (back -= 1) {}
-                if (back > 0 and out[back - 1] == ',') {
-                    start = back - 1;
-                }
-            }
-
-            var rebuilt = std.ArrayList(u8).init(allocator);
-            defer rebuilt.deinit();
-            try rebuilt.appendSlice(out[0..start]);
-            try rebuilt.appendSlice(out[end..]);
-            allocator.free(out);
-            out = try rebuilt.toOwnedSlice();
-            search_from = start;
-        }
+fn isDropKey(keys: []const []const u8, name: []const u8) bool {
+    for (keys) |k| {
+        if (std.mem.eql(u8, k, name)) return true;
     }
-    return out;
+    return false;
+}
+
+/// Single-pass drop of `"key": value` pairs (any depth, best-effort).
+fn dropKeysFast(allocator: std.mem.Allocator, input: []const u8, keys: []const []const u8) ![]u8 {
+    var out = try std.ArrayList(u8).initCapacity(allocator, input.len);
+    errdefer out.deinit();
+
+    var i: usize = 0;
+    while (i < input.len) {
+        if (input[i] == '"') {
+            // Possible key
+            const key_start = i;
+            i += 1;
+            const name_start = i;
+            while (i < input.len) : (i += 1) {
+                if (input[i] == '\\') {
+                    i += 1;
+                    continue;
+                }
+                if (input[i] == '"') break;
+            }
+            if (i >= input.len) {
+                try out.appendSlice(input[key_start..]);
+                break;
+            }
+            const name = input[name_start..i];
+            i += 1; // closing quote of key
+
+            var j = i;
+            while (j < input.len and (input[j] == ' ' or input[j] == '\t' or input[j] == '\n' or input[j] == '\r')) : (j += 1) {}
+            if (j < input.len and input[j] == ':' and isDropKey(keys, name)) {
+                j += 1;
+                while (j < input.len and (input[j] == ' ' or input[j] == '\t')) : (j += 1) {}
+                const val_end = skipJsonValue(input, j) orelse input.len;
+                // Skip trailing comma
+                var end = val_end;
+                while (end < input.len and (input[end] == ' ' or input[end] == '\t')) : (end += 1) {}
+                if (end < input.len and input[end] == ',') end += 1;
+
+                // Also drop a leading comma already written
+                if (out.items.len > 0 and out.items[out.items.len - 1] == ',') {
+                    _ = out.pop();
+                } else if (end == val_end or (end > 0 and input[end - 1] != ',')) {
+                    // leading comma case handled above; if next char after skip was not comma,
+                    // we may have left a double-comma — cleaned below
+                }
+                i = end;
+                // Avoid ",}" / ",]"
+                continue;
+            }
+
+            try out.appendSlice(input[key_start..i]);
+            continue;
+        }
+        try out.append(input[i]);
+        i += 1;
+    }
+
+    // Clean ",}" and ",]"
+    var cleaned = try out.toOwnedSlice();
+    cleaned = try scrubTrailingCommas(allocator, cleaned);
+    return cleaned;
+}
+
+fn scrubTrailingCommas(allocator: std.mem.Allocator, input: []u8) ![]u8 {
+    var out = try std.ArrayList(u8).initCapacity(allocator, input.len);
+    defer allocator.free(input);
+    var i: usize = 0;
+    while (i < input.len) {
+        if (input[i] == ',' and i + 1 < input.len and (input[i + 1] == '}' or input[i + 1] == ']')) {
+            i += 1;
+            continue;
+        }
+        try out.append(input[i]);
+        i += 1;
+    }
+    return try out.toOwnedSlice();
 }
 
 fn skipJsonValue(buf: []const u8, start: usize) ?usize {
@@ -130,7 +171,6 @@ fn skipJsonValue(buf: []const u8, start: usize) ?usize {
         }
         return null;
     }
-    // number / bool / null
     var i = start;
     while (i < buf.len) : (i += 1) {
         const ch = buf[i];
@@ -142,7 +182,7 @@ fn skipJsonValue(buf: []const u8, start: usize) ?usize {
 test "drop_fields removes token" {
     const a = std.testing.allocator;
     const keys = [_][]const u8{"token"};
-    const out = try dropKeys(a, "{\"token\":\"x\",\"ok\":1}", &keys);
+    const out = try dropKeysFast(a, "{\"token\":\"x\",\"ok\":1}", &keys);
     defer a.free(out);
     try std.testing.expect(std.mem.indexOf(u8, out, "token") == null);
     try std.testing.expect(std.mem.indexOf(u8, out, "\"ok\":1") != null);

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.1 — exchange
+- Hot-path speedups: in-place redact, lean filter output, arena + buffered IO, ReleaseFast install
+- Faster `drop_fields` single-pass; builtin lookup helper for filter
+
 ## 0.8.0 — exchange
 - Skill exchange: direct / topic / headers / fanout bindings
 - Skill chains (`redact,drop_fields`), recovery_skill, publisher confirms

@@ -24,3 +24,7 @@ helm-lint:
 .PHONY: bench
 bench: build
 	N=200 ./scripts/bench-strike.sh
+
+.PHONY: doctor
+doctor: build
+	./zig-out/bin/flint doctor

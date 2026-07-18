@@ -1,5 +1,6 @@
 const std = @import("std");
 const wasm_host = @import("wasm_host.zig");
+const extra = @import("builtins/mod.zig");
 
 pub const SkillError = error{
     SkillFailed,
@@ -76,6 +77,21 @@ const builtins = [_]NativeSkill{
     .{ .name = "passthrough", .run = passthroughSkill },
     .{ .name = "pressure_tag", .run = pressureTagSkill },
     .{ .name = "document_fanout", .run = documentFanoutSkill },
+    .{ .name = "redact", .run = extra.redact.run },
+    .{ .name = "fingerprint", .run = extra.fingerprint.run },
+    .{ .name = "schema_gate", .run = extra.schema_gate.run },
+    .{ .name = "training_enrich", .run = extra.training_enrich.run },
+    .{ .name = "splice_tag", .run = extra.splice_tag.run },
+    .{ .name = "invalidation_ack", .run = extra.invalidation_ack.run },
+    .{ .name = "model_reload_hook", .run = extra.model_reload_hook.run },
+    .{ .name = "inference_annotate", .run = extra.inference_annotate.run },
+    .{ .name = "agi_decision_wrap", .run = extra.agi_decision_wrap.run },
+    .{ .name = "metrics_sample", .run = extra.metrics_sample.run },
+    .{ .name = "vectorize_normalize", .run = extra.vectorize_normalize.run },
+    .{ .name = "structured_compact", .run = extra.structured_compact.run },
+    .{ .name = "artifact_claim", .run = extra.artifact_claim.run },
+    .{ .name = "helox_raw_tag", .run = extra.helox_raw_tag.run },
+    .{ .name = "helox_structured_tag", .run = extra.helox_structured_tag.run },
 };
 
 pub const Registry = struct {

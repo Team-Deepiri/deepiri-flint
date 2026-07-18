@@ -81,8 +81,8 @@ fn printHelp() !void {
         \\  FLINT_DRY_RUN            if true/1, skip publish/ack side effects
         \\  FLINT_BLOCK_MS           XREADGROUP block (default 2000)
         \\  FLINT_READ_COUNT         max entries per read (default 10)
-  FLINT_ADMIN_PORT         health/metrics port (default 9108)
-  FLINT_LOG_LEVEL          debug|info|warn|error
+        \\  FLINT_ADMIN_PORT         health/metrics port (default 9108)
+        \\  FLINT_LOG_LEVEL          debug|info|warn|error
         \\
     );
 }

@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deepiri-flint
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: deepiri-flint }
+  template:
+    metadata:
+      labels: { app: deepiri-flint }
+    spec:
+      containers:
+        - name: flint
+          image: ghcr.io/team-deepiri/deepiri-flint:0.3.0
+          args: ["serve"]
+          ports:
+            - containerPort: 9108
+              name: admin
+          env:
+            - name: FLINT_SUGAR_GLIDER_URL
+              value: http://synapse-sidecar:8081
+            - name: FLINT_ADMIN_PORT
+              value: "9108"

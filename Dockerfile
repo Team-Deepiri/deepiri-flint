@@ -1,36 +1,41 @@
-# Bedd runtime image — Bun-style, not a platform microservice.
+# Bedd runtime image — Bun-style toolkit (not a long-running microservice).
+# Ships glibc + musl binaries for COPY --from into worker images.
 #
-# Use it like oven/bun:
-#   FROM ghcr.io/team-deepiri/bedd:0.6 AS bedd
-#   …
-#   COPY --from=bedd /usr/local/bin/bedd /usr/local/bin/bedd
+#   docker build -t ghcr.io/team-deepiri/bedd:0.6 .
 #
-# Or as a base when the container's job is stream skill work:
-#   FROM ghcr.io/team-deepiri/bedd:0.6
-#   COPY tinder.json /etc/bedd/tinder.json
-#   ENV BEDD_TINDER=/etc/bedd/tinder.json BEDD_BUS_URL=http://synapse-sidecar:8081
-#   CMD ["bedd", "serve"]
+# Alpine / musl worker:
+#   COPY --from=ghcr.io/team-deepiri/bedd:0.6 /opt/bedd/bedd-musl /usr/local/bin/bedd
+# Debian / glibc worker:
+#   COPY --from=ghcr.io/team-deepiri/bedd:0.6 /usr/local/bin/bedd /usr/local/bin/bedd
+# Both:
+#   COPY --from=ghcr.io/team-deepiri/bedd:0.6 /opt/bedd/skills /opt/bedd/skills
+
+ARG ZIG_VERSION=0.13.0
 
 FROM debian:bookworm-slim AS build
+ARG ZIG_VERSION
 RUN apt-get update && apt-get install -y --no-install-recommends curl xz-utils ca-certificates \
   && rm -rf /var/lib/apt/lists/*
-ARG ZIG_VERSION=0.13.0
 RUN curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-linux-x86_64-${ZIG_VERSION}.tar.xz" \
   | tar -xJ -C /opt \
   && ln -s /opt/zig-linux-x86_64-${ZIG_VERSION}/zig /usr/local/bin/zig
 WORKDIR /src
 COPY . .
-RUN zig build -Doptimize=ReleaseSafe -Dcpu=baseline
+RUN zig build -Doptimize=ReleaseSafe -Dcpu=baseline \
+  && cp zig-out/bin/bedd /tmp/bedd-gnu \
+  && zig build -Doptimize=ReleaseSafe -Dcpu=baseline -Dtarget=x86_64-linux-musl \
+  && cp zig-out/bin/bedd /tmp/bedd-musl \
+  && mkdir -p /tmp/skills \
+  && if [ -d zig-out/skills ]; then cp -a zig-out/skills/. /tmp/skills/; fi
 
-# Runtime: bedd on PATH (like bun). Default CMD is the CLI, not a forever-service assumption.
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
   && rm -rf /var/lib/apt/lists/*
-COPY --from=build /src/zig-out/bin/bedd /usr/local/bin/bedd
-COPY --from=build /src/zig-out/skills /opt/bedd/skills
+COPY --from=build /tmp/bedd-gnu /usr/local/bin/bedd
+COPY --from=build /tmp/bedd-musl /opt/bedd/bedd-musl
+COPY --from=build /tmp/skills /opt/bedd/skills
 COPY tinder.example.json /opt/bedd/tinder.example.json
 ENV BEDD_SKILLS_DIR=/opt/bedd/skills
 ENV PATH="/usr/local/bin:${PATH}"
-# Bun defaults to `bun` REPL/help; we default to help so this image is a toolkit.
 ENTRYPOINT ["bedd"]
 CMD ["help"]

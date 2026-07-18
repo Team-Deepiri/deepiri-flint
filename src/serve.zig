@@ -90,6 +90,10 @@ pub fn run(allocator: std.mem.Allocator, cfg: *config.Config) !void {
         for (streams) |stream| {
             if (shutdown.shouldStop()) break;
 
+            var arena = std.heap.ArenaAllocator.init(allocator);
+            defer arena.deinit();
+            const batch_alloc = arena.allocator();
+
             const events = client.read(.{
                 .stream = stream,
                 .consumer_group = cfg.consumer_group,
@@ -117,8 +121,7 @@ pub fn run(allocator: std.mem.Allocator, cfg: *config.Config) !void {
             if (events.len == 0) continue;
             progressed = true;
 
-            var ack_ids = std.ArrayList([]const u8).init(allocator);
-            defer ack_ids.deinit();
+            var ack_ids = std.ArrayList([]const u8).init(batch_alloc);
 
             for (events) |event| {
                 if (shutdown.shouldStop()) break;

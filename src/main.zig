@@ -5,6 +5,7 @@ const serve = @import("serve.zig");
 const skill = @import("skill/mod.zig");
 const strike = @import("strike.zig");
 const eval = @import("eval.zig");
+const filter = @import("filter.zig");
 const shutdown = @import("shutdown.zig");
 const tinder_validate = @import("tinder_validate.zig");
 const bus_mock = @import("bus_mock.zig");
@@ -59,6 +60,18 @@ pub fn main() !void {
         try eval.evalFromArgs(allocator, cfg.skills_dir, skill_name, input);
         return;
     }
+    if (eql(command, "filter")) {
+        const skill_name = args.next() orelse {
+            try std.io.getStdErr().writer().writeAll("usage: bedd filter <skill> [--raw]  # NDJSON stdin→stdout\n");
+            std.process.exit(2);
+        };
+        var raw = false;
+        while (args.next()) |a| {
+            if (eql(a, "--raw")) raw = true;
+        }
+        try filter.run(allocator, cfg.skills_dir, skill_name, raw);
+        return;
+    }
     if (eql(command, "tinder")) {
         const sub = args.next() orelse "validate";
         if (!eql(sub, "validate")) {
@@ -95,6 +108,8 @@ pub fn main() !void {
 fn runBench(allocator: std.mem.Allocator, args: *std.process.ArgIterator) !void {
     var iterations: u32 = 50;
     var json = false;
+    var mode: []const u8 = "mock";
+    var redis_url: []const u8 = "redis://127.0.0.1:6379/0";
     var skill_list = std.ArrayList([]const u8).init(allocator);
     defer skill_list.deinit();
 
@@ -104,6 +119,11 @@ fn runBench(allocator: std.mem.Allocator, args: *std.process.ArgIterator) !void 
         } else if (eql(a, "--iterations") or eql(a, "-n")) {
             const v = args.next() orelse "50";
             iterations = std.fmt.parseInt(u32, v, 10) catch 50;
+        } else if (eql(a, "--mode")) {
+            mode = args.next() orelse "mock";
+        } else if (eql(a, "--redis")) {
+            redis_url = args.next() orelse redis_url;
+            mode = "redis";
         } else if (eql(a, "--skills")) {
             const v = args.next() orelse "echo";
             var it = std.mem.splitScalar(u8, v, ',');
@@ -118,7 +138,12 @@ fn runBench(allocator: std.mem.Allocator, args: *std.process.ArgIterator) !void 
         try skill_list.append("fingerprint");
     }
 
-    var report = try bench.runMockBench(allocator, iterations, skill_list.items);
+    var report = if (eql(mode, "skill"))
+        try bench.runSkillBench(allocator, iterations, skill_list.items)
+    else if (eql(mode, "redis"))
+        try bench.runRedisBench(allocator, iterations, skill_list.items, redis_url)
+    else
+        try bench.runMockBench(allocator, iterations, skill_list.items);
     defer report.deinit(allocator);
     try bench.printReport(allocator, &report, json);
 }
@@ -194,20 +219,22 @@ fn printHelp() !void {
         \\  bedd doctor
         \\  bedd skills
         \\  bedd eval <skill> '<json>'|@file.json
+        \\  bedd filter <skill> [--raw]          # NDJSON stdin→stdout (use inside workers)
         \\  bedd tinder validate [path]
         \\  bedd strike [stream] [event_type] [skill]
         \\  bedd demo
-        \\  bedd bench [--iterations N] [--skills echo,redact] [--json]
+        \\  bedd bench [--mode mock|skill|redis] [--iterations N] [--skills echo,redact] [--json]
         \\  bedd serve
         \\
         \\Env:
-        \\  BEDD_BUS_URL            HTTP bus base URL (default http://127.0.0.1:8081)
+        \\  BEDD_BUS_URL            http://… or redis://host:port[/db]
         \\  BEDD_SENDER             publish sender (default bedd)
         \\  BEDD_CONSUMER_GROUP     consumer group (default bedd-workers)
         \\  BEDD_CONSUMER_NAME      consumer name (default bedd-1)
         \\  BEDD_TINDER             path to route JSON file
         \\  BEDD_SKILLS_DIR         WASM skill directory (default zig-out/skills)
         \\  BEDD_DLQ_STREAM         dead-letter stream (default dead-letter)
+        \\  BEDD_DROP_FIELDS        comma keys for drop_fields skill
         \\  BEDD_DRY_RUN            if true/1, skip publish/ack side effects
         \\  BEDD_BLOCK_MS           read block ms (default 2000)
         \\  BEDD_READ_COUNT         max entries per read (default 10)
@@ -217,7 +244,6 @@ fn printHelp() !void {
         \\Signals (serve):
         \\  SIGTERM / SIGINT  graceful stop
         \\  SIGHUP            reload tinder routes
-        \\  (also reloads when tinder file mtime changes)
         \\
     );
 }

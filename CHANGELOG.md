@@ -1,27 +1,20 @@
 # Changelog
 
-- Bun-style `install.sh` + runtime Docker image (COPY into host Dockerfiles; not a compose service)
+## 0.7.0 — filter
+- `bedd filter` — NDJSON stdin→stdout skill pipe (use inside workers without `serve`)
+- Direct `redis://` bus transport (XADD / XREADGROUP / XACK) — skip HTTP sidecar hop
+- Builtin `drop_fields` (`BEDD_DROP_FIELDS`)
+- `bedd bench --mode skill|redis|mock` — honest skill floor + Redis Streams A/B
+- Serve-loop arena allocator per read batch
+
 ## 0.6.0 — spark
-- `bedd bench` — mock-bus e2e perf (throughput, p50/p95/p99, error rate, JSON report)
-- Hardened for integration/perf experiments against host buses
+- `bedd bench` — mock-bus e2e perf; Bun-style `install.sh` + dual gnu/musl image
 
 ## 0.5.0 — spark
-- Rename Flint → **Bedd**
-- Primitive core: opaque streams, `BEDD_BUS_URL`, configurable `BEDD_DLQ_STREAM`
-- Drop host-specific topic catalogs and domain skills (LIS/Helox/AGI)
-- Neutral defaults: `inbox` → `echo` → `outbox`
-- Schema-only `bedd tinder validate`
+- Rename Flint → **Bedd**; strip host-specific coupling
 
-## 0.4.1 — ember
-- In-process mock bus (`bedd demo`) with timed HTTP assembly
-- End-to-end integration test: read → strike → publish → ack
-- Publish retry + circuit breaker; latency histograms on `/metrics`
-- `bedd tinder validate`
-
-## 0.4.0 — ember
-- Real skill logic and `bedd eval`
-- SIGTERM/SIGINT stop; SIGHUP reloads tinder
-- Admin probes
+## 0.4.x — ember
+- Mock bus, eval, admin, DLQ, retry
 
 ## 0.3.0 — strike
 - Admin HTTP, DLQ, Helm/k8s

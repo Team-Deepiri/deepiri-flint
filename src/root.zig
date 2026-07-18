@@ -1,6 +1,7 @@
 //! Test root — re-exports modules under test.
 pub const bus = @import("bus.zig");
 pub const bus_mock = @import("bus_mock.zig");
+pub const bus_redis = @import("bus_redis.zig");
 pub const config = @import("config.zig");
 pub const tinder = @import("tinder.zig");
 pub const ember = @import("ember.zig");
@@ -8,6 +9,7 @@ pub const strike = @import("strike.zig");
 pub const skill = @import("skill/mod.zig");
 pub const skill_common = @import("skill/common.zig");
 pub const eval = @import("eval.zig");
+pub const filter = @import("filter.zig");
 pub const builtins_test = @import("skill/builtins_test.zig");
 pub const jsonx = @import("jsonx.zig");
 pub const json_path = @import("json/path.zig");
@@ -26,6 +28,7 @@ pub const bench = @import("bench.zig");
 test {
     _ = bus;
     _ = bus_mock;
+    _ = bus_redis;
     _ = config;
     _ = tinder;
     _ = ember;
@@ -33,6 +36,7 @@ test {
     _ = skill;
     _ = skill_common;
     _ = eval;
+    _ = filter;
     _ = builtins_test;
     _ = jsonx;
     _ = json_path;

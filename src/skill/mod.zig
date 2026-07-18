@@ -54,6 +54,7 @@ const builtins = [_]NativeSkill{
     .{ .name = "redact", .run = extra.redact.run },
     .{ .name = "fingerprint", .run = extra.fingerprint.run },
     .{ .name = "schema_gate", .run = extra.schema_gate.run },
+    .{ .name = "drop_fields", .run = extra.drop_fields.run },
 };
 
 pub const Registry = struct {

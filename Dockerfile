@@ -1,14 +1,14 @@
 # Bedd runtime image — Bun-style toolkit (not a long-running microservice).
 # Ships glibc + musl binaries for COPY --from into worker images.
 #
-#   docker build -t ghcr.io/team-deepiri/bedd:0.6 .
+#   docker build -t ghcr.io/team-deepiri/bedd:0.7 .
 #
 # Alpine / musl worker:
-#   COPY --from=ghcr.io/team-deepiri/bedd:0.6 /opt/bedd/bedd-musl /usr/local/bin/bedd
+#   COPY --from=ghcr.io/team-deepiri/bedd:0.7 /opt/bedd/bedd-musl /usr/local/bin/bedd
 # Debian / glibc worker:
-#   COPY --from=ghcr.io/team-deepiri/bedd:0.6 /usr/local/bin/bedd /usr/local/bin/bedd
+#   COPY --from=ghcr.io/team-deepiri/bedd:0.7 /usr/local/bin/bedd /usr/local/bin/bedd
 # Both:
-#   COPY --from=ghcr.io/team-deepiri/bedd:0.6 /opt/bedd/skills /opt/bedd/skills
+#   COPY --from=ghcr.io/team-deepiri/bedd:0.7 /opt/bedd/skills /opt/bedd/skills
 
 ARG ZIG_VERSION=0.13.0
 

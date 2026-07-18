@@ -26,7 +26,7 @@ export PATH="$PWD/zig-out/bin:$PATH"
 ## Docker image (gnu + musl)
 
 ```bash
-docker build -t ghcr.io/team-deepiri/bedd:0.6 .
+docker build -t ghcr.io/team-deepiri/bedd:0.7 .
 ```
 
 Layout:
@@ -42,7 +42,7 @@ Layout:
 **Alpine / musl:**
 
 ```dockerfile
-ARG BEDD_IMAGE=ghcr.io/team-deepiri/bedd:0.6
+ARG BEDD_IMAGE=ghcr.io/team-deepiri/bedd:0.7
 COPY --from=${BEDD_IMAGE} /opt/bedd/bedd-musl /usr/local/bin/bedd
 COPY --from=${BEDD_IMAGE} /opt/bedd/skills /opt/bedd/skills
 ENV BEDD_SKILLS_DIR=/opt/bedd/skills
@@ -51,7 +51,7 @@ ENV BEDD_SKILLS_DIR=/opt/bedd/skills
 **Debian / glibc:**
 
 ```dockerfile
-ARG BEDD_IMAGE=ghcr.io/team-deepiri/bedd:0.6
+ARG BEDD_IMAGE=ghcr.io/team-deepiri/bedd:0.7
 COPY --from=${BEDD_IMAGE} /usr/local/bin/bedd /usr/local/bin/bedd
 COPY --from=${BEDD_IMAGE} /opt/bedd/skills /opt/bedd/skills
 ENV BEDD_SKILLS_DIR=/opt/bedd/skills

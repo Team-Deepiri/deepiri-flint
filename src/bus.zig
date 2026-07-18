@@ -1,5 +1,6 @@
 const std = @import("std");
 const config = @import("config.zig");
+const bus_redis = @import("bus_redis.zig");
 
 pub const BusError = error{
     HttpFailed,
@@ -8,6 +9,7 @@ pub const BusError = error{
     SidecarUnhealthy,
     OutOfMemory,
     Unexpected,
+    RedisFailed,
 };
 
 pub const PublishRequest = struct {
@@ -50,21 +52,29 @@ pub const Client = struct {
     base_url: []const u8,
     http: std.http.Client,
     timeout_ms: u64,
+    redis: ?bus_redis.Conn = null,
 
     pub fn init(allocator: std.mem.Allocator, cfg: config.Config) Client {
-        return .{
+        var c: Client = .{
             .allocator = allocator,
             .base_url = cfg.bus_url,
             .http = .{ .allocator = allocator },
             .timeout_ms = cfg.timeout_ms,
+            .redis = null,
         };
+        if (bus_redis.isRedisUrl(cfg.bus_url)) {
+            c.redis = bus_redis.Conn.connect(allocator, cfg.bus_url) catch null;
+        }
+        return c;
     }
 
     pub fn deinit(self: *Client) void {
+        if (self.redis) |*r| r.deinit();
         self.http.deinit();
     }
 
     pub fn health(self: *Client) !bool {
+        if (self.redis) |*r| return r.ping();
         const url = try std.fmt.allocPrint(self.allocator, "{s}/healthz", .{self.base_url});
         defer self.allocator.free(url);
         var body = std.ArrayList(u8).init(self.allocator);
@@ -79,6 +89,7 @@ pub const Client = struct {
     }
 
     pub fn ready(self: *Client) !bool {
+        if (self.redis) |*r| return r.ping();
         const url = try std.fmt.allocPrint(self.allocator, "{s}/readyz", .{self.base_url});
         defer self.allocator.free(url);
         var body = std.ArrayList(u8).init(self.allocator);
@@ -93,6 +104,9 @@ pub const Client = struct {
     }
 
     pub fn publish(self: *Client, req: PublishRequest) !PublishResult {
+        if (self.redis) |*r| {
+            return r.publish(req) catch return BusError.RedisFailed;
+        }
         const url = try std.fmt.allocPrint(self.allocator, "{s}/v1/publish", .{self.base_url});
         defer self.allocator.free(url);
 
@@ -139,6 +153,9 @@ pub const Client = struct {
     }
 
     pub fn read(self: *Client, req: ReadRequest) ![]StreamEvent {
+        if (self.redis) |*r| {
+            return r.read(req) catch return BusError.RedisFailed;
+        }
         const url = try std.fmt.allocPrint(self.allocator, "{s}/v1/read", .{self.base_url});
         defer self.allocator.free(url);
 
@@ -173,6 +190,9 @@ pub const Client = struct {
     }
 
     pub fn ack(self: *Client, stream: []const u8, consumer_group: []const u8, entry_ids: []const []const u8) !i64 {
+        if (self.redis) |*r| {
+            return r.ack(stream, consumer_group, entry_ids) catch return BusError.RedisFailed;
+        }
         const url = try std.fmt.allocPrint(self.allocator, "{s}/v1/ack", .{self.base_url});
         defer self.allocator.free(url);
 
@@ -239,6 +259,8 @@ pub fn doctor(allocator: std.mem.Allocator, cfg: config.Config) !void {
     try out.print("bedd doctor\n", .{});
     try out.print("  version:          {s}\n", .{config.version});
     try out.print("  bus_url: {s}\n", .{cfg.bus_url});
+    const transport: []const u8 = if (bus_redis.isRedisUrl(cfg.bus_url)) "redis-direct" else "http";
+    try out.print("  transport:        {s}\n", .{transport});
     try out.print("  sender:           {s}\n", .{cfg.sender});
     try out.print("  consumer_group:   {s}\n", .{cfg.consumer_group});
     try out.print("  consumer_name:    {s}\n", .{cfg.consumer_name});

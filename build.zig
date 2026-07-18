@@ -92,4 +92,22 @@ pub fn build(b: *std.Build) void {
     skills_step.dependOn(&install_echo.step);
     // Also build skills as part of default install
     b.getInstallStep().dependOn(&install_echo.step);
+
+    const pass_wasm = b.addExecutable(.{
+        .name = "passthrough_skill",
+        .root_source_file = b.path("skills/passthrough_skill.zig"),
+        .target = b.resolveTargetQuery(.{
+            .cpu_arch = .wasm32,
+            .os_tag = .freestanding,
+        }),
+        .optimize = .ReleaseSmall,
+    });
+    pass_wasm.rdynamic = true;
+    pass_wasm.entry = .disabled;
+    const install_pass = b.addInstallBinFile(pass_wasm.getEmittedBin(), "../skills/passthrough_skill.wasm");
+    install_pass.step.dependOn(&pass_wasm.step);
+    skills_step.dependOn(&install_pass.step);
+    b.getInstallStep().dependOn(&install_pass.step);
+
 }
+

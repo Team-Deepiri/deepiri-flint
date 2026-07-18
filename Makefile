@@ -20,3 +20,7 @@ docker:
 
 helm-lint:
 	helm lint deploy/helm/flint
+
+.PHONY: bench
+bench: build
+	N=200 ./scripts/bench-strike.sh

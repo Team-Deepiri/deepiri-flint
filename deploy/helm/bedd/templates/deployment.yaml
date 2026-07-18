@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "flint.fullname" . }}
+  name: {{ include "bedd.fullname" . }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: flint
+      app: bedd
   template:
     metadata:
       labels:
-        app: flint
+        app: bedd
     spec:
       containers:
-        - name: flint
+        - name: bedd
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           args: ["serve"]
           ports:
@@ -24,11 +24,11 @@ spec:
             - name: {{ $k }}
               value: {{ $v | quote }}
             {{- end }}
-            - name: FLINT_CONSUMER_NAME
+            - name: BEDD_CONSUMER_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: FLINT_ADMIN_PORT
+            - name: BEDD_ADMIN_PORT
               value: {{ .Values.service.adminPort | quote }}
           livenessProbe:
             httpGet:

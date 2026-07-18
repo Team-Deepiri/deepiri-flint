@@ -9,7 +9,7 @@ pub fn setLevel(level: Level) void {
 }
 
 pub fn setLevelFromEnv() void {
-    const raw = std.posix.getenv("FLINT_LOG_LEVEL") orelse return;
+    const raw = std.posix.getenv("BEDD_LOG_LEVEL") orelse return;
     if (std.ascii.eqlIgnoreCase(raw, "debug")) current = .debug;
     if (std.ascii.eqlIgnoreCase(raw, "info")) current = .info;
     if (std.ascii.eqlIgnoreCase(raw, "warn")) current = .warn;

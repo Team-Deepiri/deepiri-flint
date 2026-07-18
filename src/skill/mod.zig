@@ -10,7 +10,6 @@ pub const SkillError = error{
 };
 
 pub const SkillResult = struct {
-    /// Owned JSON payload produced by the skill.
     payload_json: []u8,
     event_type_override: ?[]const u8 = null,
 
@@ -49,49 +48,12 @@ fn passthroughSkill(ctx: SkillContext, input_json: []const u8) SkillError!SkillR
     return .{ .payload_json = out };
 }
 
-fn pressureTagSkill(ctx: SkillContext, input_json: []const u8) SkillError!SkillResult {
-    const out = std.fmt.allocPrint(
-        ctx.allocator,
-        \\{{"tagged_by":"flint","source_stream":"{s}","pressure":{s}}}
-    ,
-        .{ ctx.stream, input_json },
-    ) catch return SkillError.OutOfMemory;
-    return .{ .payload_json = out };
-}
-
-fn documentFanoutSkill(ctx: SkillContext, input_json: []const u8) SkillError!SkillResult {
-    const out = std.fmt.allocPrint(
-        ctx.allocator,
-        \\{{"kind":"document_fanout","document_route":true,"source_entry":"{s}","body":{s}}}
-    ,
-        .{ ctx.entry_id, input_json },
-    ) catch return SkillError.OutOfMemory;
-    return .{
-        .payload_json = out,
-        .event_type_override = ctx.allocator.dupe(u8, "flint.document.fanout") catch null,
-    };
-}
-
 const builtins = [_]NativeSkill{
     .{ .name = "echo", .run = echoSkill },
     .{ .name = "passthrough", .run = passthroughSkill },
-    .{ .name = "pressure_tag", .run = pressureTagSkill },
-    .{ .name = "document_fanout", .run = documentFanoutSkill },
     .{ .name = "redact", .run = extra.redact.run },
     .{ .name = "fingerprint", .run = extra.fingerprint.run },
     .{ .name = "schema_gate", .run = extra.schema_gate.run },
-    .{ .name = "training_enrich", .run = extra.training_enrich.run },
-    .{ .name = "splice_tag", .run = extra.splice_tag.run },
-    .{ .name = "invalidation_ack", .run = extra.invalidation_ack.run },
-    .{ .name = "model_reload_hook", .run = extra.model_reload_hook.run },
-    .{ .name = "inference_annotate", .run = extra.inference_annotate.run },
-    .{ .name = "agi_decision_wrap", .run = extra.agi_decision_wrap.run },
-    .{ .name = "metrics_sample", .run = extra.metrics_sample.run },
-    .{ .name = "vectorize_normalize", .run = extra.vectorize_normalize.run },
-    .{ .name = "structured_compact", .run = extra.structured_compact.run },
-    .{ .name = "artifact_claim", .run = extra.artifact_claim.run },
-    .{ .name = "helox_raw_tag", .run = extra.helox_raw_tag.run },
-    .{ .name = "helox_structured_tag", .run = extra.helox_structured_tag.run },
 };
 
 pub const Registry = struct {
@@ -129,7 +91,6 @@ pub const Registry = struct {
             }
         }
 
-        // Try WASM: skills_dir/<name>.wasm or skills_dir/<name>_skill.wasm
         if (self.wasm_cache.getPtr(name)) |skill| {
             return skill.run(ctx, input_json);
         }
@@ -169,9 +130,9 @@ test "echo skill wraps input" {
     defer reg.deinit();
     const ctx = SkillContext{
         .allocator = std.testing.allocator,
-        .stream = "document.artifacts",
+        .stream = "inbox",
         .entry_id = "1-0",
-        .event_type = "document.artifacts.route",
+        .event_type = "demo.event",
     };
     const result = try reg.run("echo", ctx, "{\"a\":1}");
     defer result.deinit(std.testing.allocator);
@@ -184,9 +145,9 @@ test "wasm echo_skill loads when artifact present" {
     if (!fileExists("zig-out/skills/echo_skill.wasm")) return;
     const ctx = SkillContext{
         .allocator = std.testing.allocator,
-        .stream = "document.artifacts",
+        .stream = "inbox",
         .entry_id = "1-0",
-        .event_type = "document.artifacts.route",
+        .event_type = "demo.event",
     };
     const result = try reg.run("echo_skill", ctx, "{\"wasm\":1}");
     defer result.deinit(std.testing.allocator);

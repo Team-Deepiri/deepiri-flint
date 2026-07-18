@@ -40,7 +40,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(wasm3);
 
     const exe = b.addExecutable(.{
-        .name = "flint",
+        .name = "bedd",
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
@@ -55,7 +55,7 @@ pub fn build(b: *std.Build) void {
     if (b.args) |args| {
         run_cmd.addArgs(args);
     }
-    const run_step = b.step("run", "Run flint");
+    const run_step = b.step("run", "Run bedd");
     run_step.dependOn(&run_cmd.step);
 
     const unit_tests = b.addTest(.{

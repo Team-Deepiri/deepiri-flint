@@ -1,3 +1,0 @@
-{
-  "routes": [{"stream":"model-events","event_type":"*","skill":"model_reload_hook","publish_stream":"platform-events","publish_event_type":"flint.model.reload.seen"},{"stream":"agi-decisions","event_type":"*","skill":"agi_decision_wrap","publish_stream":"platform-events","publish_event_type":"flint.agi.wrapped"},{"stream":"inference-events","event_type":"*","skill":"inference_annotate","publish_stream":"platform-events","publish_event_type":"flint.inference.annotated"}]
-}

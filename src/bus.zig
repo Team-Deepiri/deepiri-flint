@@ -29,7 +29,7 @@ pub const ReadRequest = struct {
 pub const StreamEvent = struct {
     stream: []const u8,
     entry_id: []const u8,
-    /// Raw JSON object of Redis stream fields (as returned by Sugar Glider).
+    /// Raw JSON object of Redis stream fields (as returned by HTTP bus).
     fields_json: []const u8,
     /// Best-effort event type extracted from fields.
     event_type: []const u8,
@@ -54,7 +54,7 @@ pub const Client = struct {
     pub fn init(allocator: std.mem.Allocator, cfg: config.Config) Client {
         return .{
             .allocator = allocator,
-            .base_url = cfg.sugar_glider_url,
+            .base_url = cfg.bus_url,
             .http = .{ .allocator = allocator },
             .timeout_ms = cfg.timeout_ms,
         };
@@ -236,9 +236,9 @@ pub fn encodePublishBody(allocator: std.mem.Allocator, req: PublishRequest) ![]u
 
 pub fn doctor(allocator: std.mem.Allocator, cfg: config.Config) !void {
     const out = std.io.getStdOut().writer();
-    try out.print("flint doctor\n", .{});
+    try out.print("bedd doctor\n", .{});
     try out.print("  version:          {s}\n", .{config.version});
-    try out.print("  sugar_glider_url: {s}\n", .{cfg.sugar_glider_url});
+    try out.print("  bus_url: {s}\n", .{cfg.bus_url});
     try out.print("  sender:           {s}\n", .{cfg.sender});
     try out.print("  consumer_group:   {s}\n", .{cfg.consumer_group});
     try out.print("  consumer_name:    {s}\n", .{cfg.consumer_name});
@@ -253,7 +253,7 @@ pub fn doctor(allocator: std.mem.Allocator, cfg: config.Config) !void {
     try out.print("  healthz:          {s}\n", .{if (healthy) "ok" else "unreachable"});
     try out.print("  readyz:           {s}\n", .{if (is_ready) "ok" else "unreachable"});
     if (!healthy) {
-        try out.writeAll("  status:            degraded (sidecar unreachable — serve will retry)\n");
+        try out.writeAll("  status:            degraded (bus unreachable — serve will retry)\n");
     } else {
         try out.writeAll("  status:            ok\n");
     }
@@ -276,7 +276,7 @@ fn extractJsonNumber(json: []const u8, key: []const u8) ?i64 {
     return std.fmt.parseInt(i64, json[start..j], 10) catch null;
 }
 
-/// Minimal events array parser for Sugar Glider read responses.
+/// Minimal events array parser for HTTP bus read responses.
 fn parseReadEvents(allocator: std.mem.Allocator, body: []const u8) ![]StreamEvent {
     var list = std.ArrayList(StreamEvent).init(allocator);
     errdefer {
@@ -431,21 +431,21 @@ fn parseOneEvent(allocator: std.mem.Allocator, obj: []const u8) !StreamEvent {
     };
 }
 
-test "encodePublishBody shapes sugar glider json" {
+test "encodePublishBody shapes bus json" {
     const body = try encodePublishBody(std.testing.allocator, .{
-        .stream = "document.artifacts",
-        .event_type = "document.artifacts.route",
-        .sender = "flint",
+        .stream = "inbox",
+        .event_type = "inbox.route",
+        .sender = "bedd",
         .payload_json = "{\"ok\":true}",
     });
     defer std.testing.allocator.free(body);
-    try std.testing.expect(std.mem.indexOf(u8, body, "document.artifacts") != null);
-    try std.testing.expect(std.mem.indexOf(u8, body, "\"sender\":\"flint\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, body, "inbox") != null);
+    try std.testing.expect(std.mem.indexOf(u8, body, "\"sender\":\"bedd\"") != null);
 }
 
 test "parseReadEvents extracts entries" {
     const sample =
-        \\{"events":[{"stream":"document.artifacts","entry_id":"1-0","fields":{"event_type":"document.artifacts.route","payload":{"x":1}}}]}
+        \\{"events":[{"stream":"inbox","entry_id":"1-0","fields":{"event_type":"inbox.route","payload":{"x":1}}}]}
     ;
     const events = try parseReadEvents(std.testing.allocator, sample);
     defer {
@@ -453,7 +453,7 @@ test "parseReadEvents extracts entries" {
         std.testing.allocator.free(events);
     }
     try std.testing.expectEqual(@as(usize, 1), events.len);
-    try std.testing.expectEqualStrings("document.artifacts", events[0].stream);
+    try std.testing.expectEqualStrings("inbox", events[0].stream);
     try std.testing.expectEqualStrings("1-0", events[0].entry_id);
-    try std.testing.expectEqualStrings("document.artifacts.route", events[0].event_type);
+    try std.testing.expectEqualStrings("inbox.route", events[0].event_type);
 }

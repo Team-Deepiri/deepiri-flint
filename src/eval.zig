@@ -52,7 +52,7 @@ pub fn evalFromArgs(
         skill_name,
         input_json,
         "eval",
-        "flint.eval",
+        "bedd.eval",
     );
     defer allocator.free(out);
     try std.io.getStdOut().writer().print("{s}\n", .{out});
@@ -65,7 +65,7 @@ test "evalSkill echo" {
         "echo",
         "{\"hello\":true}",
         "eval",
-        "flint.eval",
+        "bedd.eval",
     );
     defer std.testing.allocator.free(out);
     try std.testing.expect(std.mem.indexOf(u8, out, "\"echo\":true") != null);

@@ -1,99 +1,65 @@
-# deepiri-flint
+# deepiri-bedd
 
-**Flint** is Deepiri's stream-native AI worker runtime — the Bun analogue for the event plane.
+**Bedd** is a portable stream skill runtime (Zig): HTTP bus in → route table → native/WASM skill → bus out → ack.
 
-A single Zig binary: **consume** Sugar Glider streams → **run** a skill (native or WASM) → **publish** results → **ACK**.
+It does not hardcode any host product's topics or services. Point `BEDD_BUS_URL` at any bus that speaks the Bedd HTTP shape (`/healthz`, `/readyz`, `/v1/publish`, `/v1/read`, `/v1/ack`), load a route file, drop skills under `BEDD_SKILLS_DIR`.
 
-## Status
+## Build
 
-**v0.4 (ember)** — full serve loop, admin metrics, DLQ, Helm, 15+ builtins, wasm3 skills.
+```bash
+# Zig 0.13.0; use -Dcpu=baseline on WSL if needed
+zig build -Doptimize=ReleaseSafe -Dcpu=baseline
+zig build test -Dcpu=baseline
+```
 
 ## Quick start
 
 ```bash
-# Zig 0.13+
-zig build
-zig build test
+./zig-out/bin/bedd version
+./zig-out/bin/bedd doctor
+./zig-out/bin/bedd skills
+./zig-out/bin/bedd strike inbox demo.event echo
+./zig-out/bin/bedd eval redact '{"token":"secret"}'
+./zig-out/bin/bedd demo
+./zig-out/bin/bedd tinder validate tinder.example.json
 
-./zig-out/bin/flint version
-./zig-out/bin/flint doctor
-./zig-out/bin/flint skills
-./zig-out/bin/flint strike document.artifacts document.artifacts.route echo
-./zig-out/bin/flint eval redact '{"token":"secret"}'
-
-# Live consumer (needs Sugar Glider)
-export FLINT_SUGAR_GLIDER_URL=http://127.0.0.1:8081
-export FLINT_TINDER=./tinder.example.json
-export FLINT_DRY_RUN=1   # optional: no publish/ack side effects
-./zig-out/bin/flint serve
+export BEDD_BUS_URL=http://127.0.0.1:8081
+export BEDD_TINDER=./tinder.example.json
+export BEDD_DRY_RUN=1
+./zig-out/bin/bedd serve
 ```
 
-## Architecture
+## Shape
 
 ```
-  document.* / pipeline.* / model-events
-              │
-              ▼
-     ┌─────────────────┐
-     │  flint serve    │
-     │  bus client ────┼── Sugar Glider /healthz /v1/publish /v1/read /v1/ack
-     │  tinder routes  │
-     │  skill registry │── native builtins + *.wasm (flint_skill_v1 via wasm3)
-     │  ember metrics  │
-     └─────────────────┘
+HTTP bus ──► bedd serve ──► tinder routes ──► skill ──► publish ──► ack
+                 │
+                 └── admin :9108  /healthz /metrics
 ```
 
 | Concept | Meaning |
-|--------|---------|
-| **Strike** | One consume→execute→publish cycle |
-| **Skill** | Native builtin or WASM module (`flint_skill_v1`) |
-| **Tinder** | JSON map: stream + event_type → skill + publish target |
-| **Ember** | In-process counters + last-N strike traces |
+|---------|---------|
+| **Bus** | Anything exposing Bedd's small HTTP API |
+| **Tinder** | JSON route table: stream + event → skill → publish stream |
+| **Skill** | Native builtin or WASM (`bedd_skill_v1`) |
+| **Strike** | One consume → skill → publish cycle |
 
-## Built-in skills
-
-- `echo` — wrap input with flint metadata
-- `passthrough` — republish payload unchanged
-- `pressure_tag` — tag `pipeline.pressure.events` for metrics
-- `document_fanout` — shape LIS document routes for Helox/inference
-
-## WASM skills (`flint_skill_v1`)
-
-Place `name.wasm` or `name_skill.wasm` under `FLINT_SKILLS_DIR` (default `zig-out/skills`).
-
-Exports:
-
-- `flint_abi_version() -> i32` (=1)
-- `flint_on_event(in_ptr:i32, in_len:i32) -> i32` (0=ok)
-
-Imports (`flint` module):
-
-- `host_alloc(size:i32) -> i32`
-- `host_set_result(ptr:i32, len:i32)`
-
-Sample: `skills/echo_skill.zig` → `zig-out/skills/echo_skill.wasm`
-
-## Tinder config
-
-See `tinder.example.json`. Env: `FLINT_TINDER=/path/to/tinder.json`.
+Builtins: `echo`, `passthrough`, `redact`, `fingerprint`, `schema_gate`. Everything else is WASM or host-supplied.
 
 ## Env
 
-| Variable | Default |
-|----------|---------|
-| `FLINT_SUGAR_GLIDER_URL` | `http://127.0.0.1:8081` |
-| `FLINT_SENDER` | `flint` |
-| `FLINT_CONSUMER_GROUP` | `flint-workers` |
-| `FLINT_CONSUMER_NAME` | `flint-1` |
-| `FLINT_SKILLS_DIR` | `zig-out/skills` |
-| `FLINT_TINDER` | (built-in defaults) |
-| `FLINT_DRY_RUN` | `false` |
-| `FLINT_BLOCK_MS` | `2000` |
-| `FLINT_READ_COUNT` | `10` |
-| `FLINT_ADMIN_PORT` | `9108` |
-| `FLINT_LOG_LEVEL` | `info` |
+| Var | Default |
+|-----|---------|
+| `BEDD_BUS_URL` | `http://127.0.0.1:8081` |
+| `BEDD_SENDER` | `bedd` |
+| `BEDD_CONSUMER_GROUP` | `bedd-workers` |
+| `BEDD_CONSUMER_NAME` | `bedd-1` |
+| `BEDD_SKILLS_DIR` | `zig-out/skills` |
+| `BEDD_TINDER` | (built-in inbox→outbox) |
+| `BEDD_DLQ_STREAM` | `dead-letter` |
+| `BEDD_DRY_RUN` | `false` |
+| `BEDD_ADMIN_PORT` | `9108` |
 
 ## License
 
-Proprietary — Team Deepiri. Private repository.  
-Vendored [wasm3](https://github.com/wasm3/wasm3) under its MIT license (`vendor/wasm3`).
+See `LICENSE`.

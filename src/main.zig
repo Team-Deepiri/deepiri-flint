@@ -7,7 +7,7 @@ const strike = @import("strike.zig");
 const eval = @import("eval.zig");
 const shutdown = @import("shutdown.zig");
 const tinder_validate = @import("tinder_validate.zig");
-const mock_sidecar = @import("mock_sidecar.zig");
+const bus_mock = @import("bus_mock.zig");
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -25,13 +25,13 @@ pub fn main() !void {
         return;
     }
     if (eql(command, "version")) {
-        try std.io.getStdOut().writer().print("deepiri-flint {s}\n", .{config.version});
+        try std.io.getStdOut().writer().print("deepiri-bedd {s}\n", .{config.version});
         return;
     }
     if (eql(command, "skills")) {
         try std.io.getStdOut().writer().writeAll("built-in skills:\n");
         try skill.Registry.listBuiltins(std.io.getStdOut().writer());
-        try std.io.getStdOut().writer().writeAll("wasm skills: load *.wasm from FLINT_SKILLS_DIR (flint_skill_v1)\n");
+        try std.io.getStdOut().writer().writeAll("wasm skills: load *.wasm from BEDD_SKILLS_DIR (bedd_skill_v1)\n");
         return;
     }
 
@@ -43,15 +43,15 @@ pub fn main() !void {
         return;
     }
     if (eql(command, "strike")) {
-        const stream = args.next() orelse "document.artifacts";
-        const event_type = args.next() orelse "document.artifacts.route";
+        const stream = args.next() orelse "inbox";
+        const event_type = args.next() orelse "demo.event";
         const skill_name = args.next() orelse "echo";
         try strike.dryRun(allocator, cfg, stream, event_type, skill_name);
         return;
     }
     if (eql(command, "eval")) {
         const skill_name = args.next() orelse {
-            try std.io.getStdErr().writer().writeAll("usage: flint eval <skill> '<json>'|@file.json\n");
+            try std.io.getStdErr().writer().writeAll("usage: bedd eval <skill> '<json>'|@file.json\n");
             std.process.exit(2);
         };
         const input = args.next() orelse "{}";
@@ -61,7 +61,7 @@ pub fn main() !void {
     if (eql(command, "tinder")) {
         const sub = args.next() orelse "validate";
         if (!eql(sub, "validate")) {
-            try std.io.getStdErr().writer().writeAll("usage: flint tinder validate [path]\n");
+            try std.io.getStdErr().writer().writeAll("usage: bedd tinder validate [path]\n");
             std.process.exit(2);
         }
         const path = args.next() orelse cfg.tinder_path orelse "tinder.example.json";
@@ -82,28 +82,28 @@ pub fn main() !void {
         return;
     }
 
-    try std.io.getStdErr().writer().print("flint: unknown command '{s}'\n", .{command});
+    try std.io.getStdErr().writer().print("bedd: unknown command '{s}'\n", .{command});
     try printHelp();
     std.process.exit(1);
 }
 
 fn runDemo(allocator: std.mem.Allocator, cfg: *config.Config) !void {
     const out = std.io.getStdOut().writer();
-    try out.writeAll("flint demo — mock Sugar Glider + one artifact strike\n");
+    try out.writeAll("bedd demo — mock bus + redact strike\n");
 
-    var mock = mock_sidecar.MockSidecar.init(allocator, 19128);
+    var mock = bus_mock.MockSidecar.init(allocator, 19128);
     try mock.start();
     defer mock.deinit();
 
     try mock.seed(
-        "document.artifacts",
-        "document.artifacts.route",
-        \\{"documentId":"demo-1","artifactType":"document.extraction","token":"should-redact"}
+        "inbox",
+        "demo.event",
+        \\{"id":"demo-1","token":"should-redact"}
     ,
     );
 
-    allocator.free(cfg.sugar_glider_url);
-    cfg.sugar_glider_url = try allocator.dupe(u8, "http://127.0.0.1:19128");
+    allocator.free(cfg.bus_url);
+    cfg.bus_url = try allocator.dupe(u8, "http://127.0.0.1:19128");
     cfg.dry_run = false;
 
     var client = bus.Client.init(allocator, cfg.*);
@@ -111,8 +111,8 @@ fn runDemo(allocator: std.mem.Allocator, cfg: *config.Config) !void {
     try out.print("  mock health: {}\n", .{try client.health()});
 
     const events = try client.read(.{
-        .stream = "document.artifacts",
-        .consumer_group = "flint-demo",
+        .stream = "inbox",
+        .consumer_group = "bedd-demo",
         .consumer_name = "demo-1",
         .count = 5,
         .block_ms = 200,
@@ -127,20 +127,19 @@ fn runDemo(allocator: std.mem.Allocator, cfg: *config.Config) !void {
         std.process.exit(1);
     }
 
-    // Strike with redact then claim via eval path for clarity
     try eval.evalFromArgs(allocator, cfg.skills_dir, "redact", events[0].payload_json);
-    try eval.evalFromArgs(allocator, cfg.skills_dir, "artifact_claim", events[0].payload_json);
+    try eval.evalFromArgs(allocator, cfg.skills_dir, "fingerprint", events[0].payload_json);
 
     const pub_res = try client.publish(.{
-        .stream = "inference-events",
-        .event_type = "flint.demo.result",
+        .stream = "outbox",
+        .event_type = "bedd.demo.result",
         .sender = cfg.sender,
         .payload_json = "{\"demo\":true}",
     });
     defer pub_res.deinit(allocator);
     try out.print("  published: {s}\n", .{pub_res.entry_id});
 
-    _ = try client.ack("document.artifacts", "flint-demo", &.{events[0].entry_id});
+    _ = try client.ack("inbox", "bedd-demo", &.{events[0].entry_id});
     try out.print("  mock published={d} acked={d}\n", .{ mock.published, mock.acked });
     try out.writeAll("demo ok\n");
 }
@@ -151,31 +150,32 @@ fn eql(a: []const u8, b: []const u8) bool {
 
 fn printHelp() !void {
     try std.io.getStdOut().writer().writeAll(
-        \\deepiri-flint — stream-native AI worker runtime (Zig)
+        \\deepiri-bedd — portable stream skill runtime (Zig)
         \\
         \\Usage:
-        \\  flint help
-        \\  flint version
-        \\  flint doctor
-        \\  flint skills
-        \\  flint eval <skill> '<json>'|@file.json
-        \\  flint tinder validate [path]
-        \\  flint strike [stream] [event_type] [skill]
-        \\  flint demo
-        \\  flint serve
+        \\  bedd help
+        \\  bedd version
+        \\  bedd doctor
+        \\  bedd skills
+        \\  bedd eval <skill> '<json>'|@file.json
+        \\  bedd tinder validate [path]
+        \\  bedd strike [stream] [event_type] [skill]
+        \\  bedd demo
+        \\  bedd serve
         \\
         \\Env:
-        \\  FLINT_SUGAR_GLIDER_URL   Sugar Glider base URL (default http://127.0.0.1:8081)
-        \\  FLINT_SENDER             publish sender (default flint)
-        \\  FLINT_CONSUMER_GROUP     XREADGROUP group (default flint-workers)
-        \\  FLINT_CONSUMER_NAME      consumer name (default flint-1)
-        \\  FLINT_TINDER             path to tinder JSON route file
-        \\  FLINT_SKILLS_DIR         WASM skill directory (default zig-out/skills)
-        \\  FLINT_DRY_RUN            if true/1, skip publish/ack side effects
-        \\  FLINT_BLOCK_MS           XREADGROUP block (default 2000)
-        \\  FLINT_READ_COUNT         max entries per read (default 10)
-        \\  FLINT_ADMIN_PORT         health/metrics port (default 9108)
-        \\  FLINT_LOG_LEVEL          debug|info|warn|error
+        \\  BEDD_BUS_URL            HTTP bus base URL (default http://127.0.0.1:8081)
+        \\  BEDD_SENDER             publish sender (default bedd)
+        \\  BEDD_CONSUMER_GROUP     consumer group (default bedd-workers)
+        \\  BEDD_CONSUMER_NAME      consumer name (default bedd-1)
+        \\  BEDD_TINDER             path to route JSON file
+        \\  BEDD_SKILLS_DIR         WASM skill directory (default zig-out/skills)
+        \\  BEDD_DLQ_STREAM         dead-letter stream (default dead-letter)
+        \\  BEDD_DRY_RUN            if true/1, skip publish/ack side effects
+        \\  BEDD_BLOCK_MS           read block ms (default 2000)
+        \\  BEDD_READ_COUNT         max entries per read (default 10)
+        \\  BEDD_ADMIN_PORT         health/metrics port (default 9108)
+        \\  BEDD_LOG_LEVEL          debug|info|warn|error
         \\
         \\Signals (serve):
         \\  SIGTERM / SIGINT  graceful stop

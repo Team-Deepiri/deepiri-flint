@@ -1,4 +1,4 @@
-name: deepiri-flint CodeQL config
+name: deepiri-bedd CodeQL config
 
 # Zig is not a first-party CodeQL language yet; we scan Actions workflows
 # and keep this config ready for future C/C++ interop sources.

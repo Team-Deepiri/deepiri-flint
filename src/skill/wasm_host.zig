@@ -5,10 +5,10 @@ const c = @cImport({
 const skill_mod = @import("mod.zig");
 
 /// Host-side WASM skill using wasm3.
-/// ABI flint_skill_v1:
-///   export flint_abi_version() -> i32 (=1)
-///   export flint_on_event(in_ptr:i32, in_len:i32) -> i32  (0=ok)
-///   imports module "flint":
+/// ABI bedd_skill_v1:
+///   export bedd_abi_version() -> i32 (=1)
+///   export bedd_on_event(in_ptr:i32, in_len:i32) -> i32  (0=ok)
+///   imports module "bedd":
 ///     host_alloc(size:i32) -> i32
 ///     host_set_result(ptr:i32, len:i32)
 pub const WasmSkill = struct {
@@ -70,11 +70,11 @@ pub const WasmSkill = struct {
     }
 
     fn linkHost(self: *WasmSkill) !void {
-        const la = c.m3_LinkRawFunctionEx(self.module, "flint", "host_alloc", "i(i)", &hostAlloc, self);
+        const la = c.m3_LinkRawFunctionEx(self.module, "bedd", "host_alloc", "i(i)", &hostAlloc, self);
         // Optional import — many skills only need host_set_result.
         _ = la;
 
-        const lr = c.m3_LinkRawFunctionEx(self.module, "flint", "host_set_result", "v(ii)", &hostSetResult, self);
+        const lr = c.m3_LinkRawFunctionEx(self.module, "bedd", "host_set_result", "v(ii)", &hostSetResult, self);
         if (lr != null) std.log.warn("link host_set_result: {s}", .{lr});
     }
 
@@ -97,19 +97,19 @@ pub const WasmSkill = struct {
         @memcpy(@as([*]u8, @ptrCast(mem_slice.ptr))[@intCast(in_ptr) .. @as(usize, @intCast(in_ptr)) + input_json.len], input_json);
 
         var fn_on: c.IM3Function = null;
-        const find = c.m3_FindFunction(&fn_on, self.runtime, "flint_on_event");
+        const find = c.m3_FindFunction(&fn_on, self.runtime, "bedd_on_event");
         if (find != null or fn_on == null) {
             if (find) |msg| {
-                std.log.err("flint_on_event missing: {s}", .{msg});
+                std.log.err("bedd_on_event missing: {s}", .{msg});
             } else {
-                std.log.err("flint_on_event missing: null fn", .{});
+                std.log.err("bedd_on_event missing: null fn", .{});
             }
             return skill_mod.SkillError.WasmError;
         }
 
         const call = c.m3_CallV(fn_on, in_ptr, @as(i32, @intCast(input_json.len)));
         if (call != null) {
-            std.log.err("flint_on_event failed: {s}", .{call});
+            std.log.err("bedd_on_event failed: {s}", .{call});
             return skill_mod.SkillError.WasmError;
         }
 

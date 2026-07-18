@@ -44,12 +44,12 @@ jobs:
       - name: CLI smoke
         run: |
           set -euo pipefail
-          ./zig-out/bin/flint version
-          ./zig-out/bin/flint doctor
-          ./zig-out/bin/flint skills
-          ./zig-out/bin/flint tinder validate tinder.example.json
-          ./zig-out/bin/flint strike document.artifacts document.artifacts.route echo
-          FLINT_SKILLS_DIR=zig-out/skills ./zig-out/bin/flint strike document.artifacts document.artifacts.route echo_skill
+          ./zig-out/bin/bedd version
+          ./zig-out/bin/bedd doctor
+          ./zig-out/bin/bedd skills
+          ./zig-out/bin/bedd tinder validate tinder.example.json
+          ./zig-out/bin/bedd strike inbox demo.event echo
+          BEDD_SKILLS_DIR=zig-out/skills ./zig-out/bin/bedd strike inbox demo.event echo_skill
 
       - name: Local demo (mock Sugar Glider)
-        run: ./zig-out/bin/flint demo
+        run: ./zig-out/bin/bedd demo

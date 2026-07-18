@@ -13,5 +13,6 @@ pub fn contains(hay: []const u8, needle: []const u8) bool {
 }
 
 test "startsWith" {
-    try std.testing.expect(startsWith("document.artifacts", "document."));
+    try std.testing.expect(startsWith("inbox", "in"));
+    try std.testing.expect(!startsWith("inbox", "out"));
 }

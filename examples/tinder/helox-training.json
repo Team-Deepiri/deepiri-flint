@@ -1,3 +1,0 @@
-{
-  "routes": [{"stream":"pipeline.helox-training.raw","event_type":"*","skill":"helox_raw_tag","publish_stream":"pipeline.metrics","publish_event_type":"flint.helox.raw.seen"},{"stream":"pipeline.helox-training.structured","event_type":"*","skill":"helox_structured_tag","publish_stream":"pipeline.metrics","publish_event_type":"flint.helox.structured.seen"}]
-}

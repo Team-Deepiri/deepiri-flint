@@ -18,7 +18,7 @@ pub fn dryRun(
     defer reg.deinit();
 
     const input =
-        \\{"flint":"strike","status":"dry-run"}
+        \\{"bedd":"strike","status":"dry-run"}
     ;
     const ctx = skill.SkillContext{
         .allocator = allocator,
@@ -34,20 +34,20 @@ pub fn dryRun(
 
     const body = try bus.encodePublishBody(allocator, .{
         .stream = "inference-events",
-        .event_type = "flint.strike.result",
+        .event_type = "bedd.strike.result",
         .sender = cfg.sender,
         .payload_json = wrapped,
     });
     defer allocator.free(body);
 
     const out = std.io.getStdOut().writer();
-    try out.print("flint strike (dry-run)\n", .{});
+    try out.print("bedd strike (dry-run)\n", .{});
     try out.print("  stream:     {s}\n", .{stream});
     try out.print("  event_type: {s}\n", .{event_type});
     try out.print("  skill:      {s}\n", .{skill_name});
-    try out.print("  sidecar:    {s}\n", .{cfg.sugar_glider_url});
+    try out.print("  sidecar:    {s}\n", .{cfg.bus_url});
     try out.print("  result:     {s}\n", .{result.payload_json});
-    try out.print("  would POST {s}/v1/publish\n", .{cfg.sugar_glider_url});
+    try out.print("  would POST {s}/v1/publish\n", .{cfg.bus_url});
     try out.print("  body:       {s}\n", .{body});
 }
 

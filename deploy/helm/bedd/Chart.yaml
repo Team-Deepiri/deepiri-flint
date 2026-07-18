@@ -1,0 +1,6 @@
+apiVersion: v2
+name: bedd
+description: Deepiri Bedd stream-native AI worker runtime
+type: application
+version: 0.3.0
+appVersion: "0.3.0"

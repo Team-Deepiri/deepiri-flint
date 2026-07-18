@@ -67,8 +67,8 @@ pub const Ember = struct {
 
 test "ember records latency buckets" {
     var e = Ember{};
-    e.record("document.artifacts", "echo", true, 3);
-    e.record("document.artifacts", "echo", true, 80);
+    e.record("inbox", "echo", true, 3);
+    e.record("inbox", "echo", true, 80);
     try std.testing.expectEqual(@as(u64, 2), e.strikes_ok);
     try std.testing.expect(e.latency_buckets[1] == 1); // <=5
     try std.testing.expect(e.latency_buckets[3] == 1); // <=100

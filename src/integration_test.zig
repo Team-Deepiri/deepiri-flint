@@ -1,31 +1,30 @@
 const std = @import("std");
 const bus = @import("bus.zig");
 const config = @import("config.zig");
-const mock_sidecar = @import("mock_sidecar.zig");
+const bus_mock = @import("bus_mock.zig");
 const skill = @import("skill/mod.zig");
 const strike = @import("strike.zig");
 const ember = @import("ember.zig");
 const tinder = @import("tinder.zig");
 const publish_retry = @import("publish_retry.zig");
 
-test "end-to-end strike against mock sugar glider" {
-    var mock = mock_sidecar.MockSidecar.init(std.testing.allocator, 19118);
+test "end-to-end strike against mock bus" {
+    var mock = bus_mock.MockSidecar.init(std.testing.allocator, 19118);
     try mock.start();
     defer mock.deinit();
     std.time.sleep(50 * std.time.ns_per_ms);
 
     try mock.seed(
-        "document.artifacts",
-        "document.artifacts.route",
-        \\{"documentId":"doc-e2e","artifactType":"document.extraction"}
+        "inbox",
+        "demo.event",
+        \\{"id":"doc-e2e","token":"secret"}
     ,
     );
 
     var cfg = try config.loadFromEnv(std.testing.allocator);
     defer cfg.deinit();
-    // Point at mock
-    std.testing.allocator.free(cfg.sugar_glider_url);
-    cfg.sugar_glider_url = try std.testing.allocator.dupe(u8, "http://127.0.0.1:19118");
+    std.testing.allocator.free(cfg.bus_url);
+    cfg.bus_url = try std.testing.allocator.dupe(u8, "http://127.0.0.1:19118");
     cfg.dry_run = false;
 
     var client = bus.Client.init(std.testing.allocator, cfg);
@@ -34,8 +33,8 @@ test "end-to-end strike against mock sugar glider" {
     try std.testing.expect(try client.health());
 
     const events = try client.read(.{
-        .stream = "document.artifacts",
-        .consumer_group = "flint-test",
+        .stream = "inbox",
+        .consumer_group = "bedd-test",
         .consumer_name = "t1",
         .count = 10,
         .block_ms = 100,
@@ -52,11 +51,11 @@ test "end-to-end strike against mock sugar glider" {
     var breaker = publish_retry.CircuitBreaker{};
 
     const route = tinder.Route{
-        .stream = "document.artifacts",
+        .stream = "inbox",
         .event_type = "*",
-        .skill = "artifact_claim",
-        .publish_stream = "inference-events",
-        .publish_event_type = "flint.artifact.claimed",
+        .skill = "redact",
+        .publish_stream = "outbox",
+        .publish_event_type = "bedd.strike.result",
     };
 
     try strike.executeOne(
@@ -72,6 +71,6 @@ test "end-to-end strike against mock sugar glider" {
     try std.testing.expectEqual(@as(u64, 1), metrics.strikes_ok);
     try std.testing.expectEqual(@as(u64, 1), metrics.publishes);
 
-    _ = try client.ack("document.artifacts", "flint-test", &.{events[0].entry_id});
+    _ = try client.ack("inbox", "bedd-test", &.{events[0].entry_id});
     try std.testing.expect(mock.acked >= 1);
 }

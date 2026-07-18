@@ -1,0 +1,13 @@
+services:
+  bedd:
+    build: ..
+    image: deepiri-bedd:local
+    environment:
+      BEDD_BUS_URL: http://127.0.0.1:8081
+      BEDD_ADMIN_PORT: "9108"
+      BEDD_TINDER: /config/tinder.json
+      BEDD_DRY_RUN: "true"
+    ports:
+      - "9108:9108"
+    volumes:
+      - ../tinder.example.json:/config/tinder.json:ro

@@ -1,14 +1,14 @@
-# ADR-005: Failed strikes publish to pipeline.dead-letter
+# ADR-005: Failed strikes publish to BEDD_DLQ_STREAM (default dead-letter)
 
 ## Status
 Accepted
 
 ## Context
-Flint must fit the Deepiri bus (Sugar Glider + ModelKit topics) without becoming another Redis client farm.
+Bedd is a portable stream skill runtime: opaque routes, pluggable HTTP bus, native/WASM skills.
 
 ## Decision
-Failed strikes publish to pipeline.dead-letter.
+Failed strikes publish to BEDD_DLQ_STREAM (default dead-letter).
 
 ## Consequences
-- Aligns with Cyrex / Helox / LIS stream contracts
+- Hosts supply route files and bus URL; Bedd stays topic-agnostic
 - Keeps the runtime small and operable

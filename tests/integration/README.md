@@ -1,9 +1,13 @@
-# Integration tests
+# Integration
 
-Require a live Sugar Glider:
+`bedd demo` runs an in-process mock bus (no external deps).
+
+Against a live HTTP bus:
 
 ```bash
-FLINT_SUGAR_GLIDER_URL=http://127.0.0.1:8081 FLINT_DRY_RUN=0 ./zig-out/bin/flint serve
+export BEDD_BUS_URL=http://127.0.0.1:8081
+export BEDD_TINDER=tinder.example.json
+./zig-out/bin/bedd serve
 ```
 
-Publish a `document.artifacts` event and watch `/metrics`.
+Publish an `inbox` event and watch `/metrics` on `BEDD_ADMIN_PORT`.

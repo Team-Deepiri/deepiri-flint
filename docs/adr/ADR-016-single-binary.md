@@ -4,11 +4,11 @@
 Accepted
 
 ## Context
-Flint must fit the Deepiri bus (Sugar Glider + ModelKit topics) without becoming another Redis client farm.
+Bedd is a portable stream skill runtime: opaque routes, pluggable HTTP bus, native/WASM skills.
 
 ## Decision
 Prefer one static-ish binary over sidecar per skill.
 
 ## Consequences
-- Aligns with Cyrex / Helox / LIS stream contracts
+- Hosts supply route files and bus URL; Bedd stays topic-agnostic
 - Keeps the runtime small and operable

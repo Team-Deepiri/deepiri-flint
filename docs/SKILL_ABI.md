@@ -1,23 +1,7 @@
-# Skill ABI — flint_skill_v1
+# Skill ABI — bedd_skill_v1
 
-Skills never talk to Redis. Flint owns the Sugar Glider HTTP client.
+Skills never talk to Redis or a product bus directly. Bedd owns the HTTP bus client.
 
-## Exports
+WASM modules export `bedd_abi_version` and `bedd_on_event`, and may import host helpers from module `"bedd"`.
 
-| Symbol | Signature | Notes |
-|--------|-----------|-------|
-| `flint_abi_version` | `() -> i32` | Must return `1` |
-| `flint_on_event` | `(in_ptr:i32, in_len:i32) -> i32` | `0` = success |
-
-Input JSON is written into linear memory at `in_ptr` for `in_len` bytes.
-
-## Imports (`flint` module)
-
-| Symbol | Signature | Notes |
-|--------|-----------|-------|
-| `host_alloc` | `(size:i32) -> i32` | Bump allocator in linear memory; `0` = failure |
-| `host_set_result` | `(ptr:i32, len:i32)` | Set JSON result buffer for the host |
-
-## Native builtins
-
-Same logical contract via Zig `SkillFn` in `src/skill/mod.zig`.
+Native builtins in this repo: `echo`, `passthrough`, `redact`, `fingerprint`, `schema_gate`.

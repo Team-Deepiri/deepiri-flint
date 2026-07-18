@@ -4,35 +4,35 @@ const version = @import("../util/version.zig");
 
 pub fn render(metrics: *const ember.Ember, allocator: std.mem.Allocator) ![]u8 {
     return std.fmt.allocPrint(allocator,
-        \\# HELP flint_info Flint runtime info
-        \\# TYPE flint_info gauge
-        \\flint_info{{version="{s}",codename="{s}"}} 1
-        \\# HELP flint_strikes_ok Successful strikes
-        \\# TYPE flint_strikes_ok counter
-        \\flint_strikes_ok {d}
-        \\# HELP flint_strikes_err Failed strikes
-        \\# TYPE flint_strikes_err counter
-        \\flint_strikes_err {d}
-        \\# HELP flint_publishes_total Publish attempts
-        \\# TYPE flint_publishes_total counter
-        \\flint_publishes_total {d}
-        \\# HELP flint_acks_total Acked entries
-        \\# TYPE flint_acks_total counter
-        \\flint_acks_total {d}
-        \\# HELP flint_reads_total Read loops
-        \\# TYPE flint_reads_total counter
-        \\flint_reads_total {d}
-        \\# HELP flint_strike_latency_ms_sum Strike latency sum
-        \\# TYPE flint_strike_latency_ms_sum counter
-        \\flint_strike_latency_ms_sum {d}
-        \\# HELP flint_strike_latency_bucket Strike latency histogram buckets
-        \\# TYPE flint_strike_latency_bucket counter
-        \\flint_strike_latency_bucket{{le="1"}} {d}
-        \\flint_strike_latency_bucket{{le="5"}} {d}
-        \\flint_strike_latency_bucket{{le="25"}} {d}
-        \\flint_strike_latency_bucket{{le="100"}} {d}
-        \\flint_strike_latency_bucket{{le="500"}} {d}
-        \\flint_strike_latency_bucket{{le="+Inf"}} {d}
+        \\# HELP bedd_info Bedd runtime info
+        \\# TYPE bedd_info gauge
+        \\bedd_info{{version="{s}",codename="{s}"}} 1
+        \\# HELP bedd_strikes_ok Successful strikes
+        \\# TYPE bedd_strikes_ok counter
+        \\bedd_strikes_ok {d}
+        \\# HELP bedd_strikes_err Failed strikes
+        \\# TYPE bedd_strikes_err counter
+        \\bedd_strikes_err {d}
+        \\# HELP bedd_publishes_total Publish attempts
+        \\# TYPE bedd_publishes_total counter
+        \\bedd_publishes_total {d}
+        \\# HELP bedd_acks_total Acked entries
+        \\# TYPE bedd_acks_total counter
+        \\bedd_acks_total {d}
+        \\# HELP bedd_reads_total Read loops
+        \\# TYPE bedd_reads_total counter
+        \\bedd_reads_total {d}
+        \\# HELP bedd_strike_latency_ms_sum Strike latency sum
+        \\# TYPE bedd_strike_latency_ms_sum counter
+        \\bedd_strike_latency_ms_sum {d}
+        \\# HELP bedd_strike_latency_bucket Strike latency histogram buckets
+        \\# TYPE bedd_strike_latency_bucket counter
+        \\bedd_strike_latency_bucket{{le="1"}} {d}
+        \\bedd_strike_latency_bucket{{le="5"}} {d}
+        \\bedd_strike_latency_bucket{{le="25"}} {d}
+        \\bedd_strike_latency_bucket{{le="100"}} {d}
+        \\bedd_strike_latency_bucket{{le="500"}} {d}
+        \\bedd_strike_latency_bucket{{le="+Inf"}} {d}
         \\
     , .{
         version.semver,
@@ -57,5 +57,5 @@ test "prometheus contains counters" {
     m.strikes_ok = 3;
     const body = try render(&m, std.testing.allocator);
     defer std.testing.allocator.free(body);
-    try std.testing.expect(std.mem.indexOf(u8, body, "flint_strikes_ok 3") != null);
+    try std.testing.expect(std.mem.indexOf(u8, body, "bedd_strikes_ok 3") != null);
 }

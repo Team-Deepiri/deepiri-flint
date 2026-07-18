@@ -23,8 +23,8 @@ pub fn run(ctx: skill.SkillContext, input_json: []const u8) skill.SkillError!ski
     return .{
         .payload_json = out,
         .event_type_override = if (passed)
-            ctx.allocator.dupe(u8, "flint.schema.passed") catch null
+            ctx.allocator.dupe(u8, "bedd.schema.passed") catch null
         else
-            ctx.allocator.dupe(u8, "flint.schema.rejected") catch null,
+            ctx.allocator.dupe(u8, "bedd.schema.rejected") catch null,
     };
 }

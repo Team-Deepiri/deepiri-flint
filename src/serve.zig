@@ -49,9 +49,9 @@ pub fn run(allocator: std.mem.Allocator, cfg: *config.Config) !void {
     }
 
     const out = std.io.getStdOut().writer();
-    try out.print("flint serve\n", .{});
+    try out.print("bedd serve\n", .{});
     try out.print("  version: {s}\n", .{config.version});
-    try out.print("  sidecar: {s}\n", .{cfg.sugar_glider_url});
+    try out.print("  sidecar: {s}\n", .{cfg.bus_url});
     try out.print("  group:   {s}\n", .{cfg.consumer_group});
     try out.print("  name:    {s}\n", .{cfg.consumer_name});
     try out.print("  admin:   :{d}\n", .{cfg.admin_port});
@@ -140,6 +140,7 @@ pub fn run(allocator: std.mem.Allocator, cfg: *config.Config) !void {
                         bus_dlq.publishDeadLetter(
                             &client,
                             cfg.sender,
+                            cfg.dlq_stream,
                             event.stream,
                             event.entry_id,
                             @errorName(err),
@@ -171,7 +172,7 @@ pub fn run(allocator: std.mem.Allocator, cfg: *config.Config) !void {
         }
     }
 
-    std.log.info("flint serve shutting down cleanly", .{});
+    std.log.info("bedd serve shutting down cleanly", .{});
     try metrics.print(out);
     _ = fsutil;
 }

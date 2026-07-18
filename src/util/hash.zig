@@ -7,7 +7,7 @@ pub fn sha256Hex(allocator: std.mem.Allocator, data: []const u8) ![]u8 {
 }
 
 test "sha256Hex length" {
-    const out = try sha256Hex(std.testing.allocator, "flint");
+    const out = try sha256Hex(std.testing.allocator, "bedd");
     defer std.testing.allocator.free(out);
     try std.testing.expectEqual(@as(usize, 64), out.len);
 }

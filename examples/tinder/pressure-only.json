@@ -1,3 +1,0 @@
-{
-  "routes": [{"stream":"pipeline.pressure.events","event_type":"*","skill":"pressure_tag","publish_stream":"pipeline.metrics","publish_event_type":"flint.pressure.tagged"},{"stream":"pipeline.splice.events","event_type":"*","skill":"splice_tag","publish_stream":"pipeline.metrics","publish_event_type":"flint.splice.tagged"},{"stream":"pipeline.artifact.invalidation","event_type":"*","skill":"invalidation_ack","publish_stream":"pipeline.metrics","publish_event_type":"flint.invalidation.acked"}]
-}

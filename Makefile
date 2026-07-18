@@ -16,10 +16,10 @@ smoke: build
 	./scripts/smoke.sh
 
 docker:
-	docker build -t deepiri-flint:local .
+	docker build -t deepiri-bedd:local .
 
 helm-lint:
-	helm lint deploy/helm/flint
+	helm lint deploy/helm/bedd
 
 .PHONY: bench
 bench: build
@@ -27,8 +27,8 @@ bench: build
 
 .PHONY: doctor
 doctor: build
-	./zig-out/bin/flint doctor
+	./zig-out/bin/bedd doctor
 
 .PHONY: serve-dry
 serve-dry: build
-	FLINT_DRY_RUN=1 FLINT_TINDER=tinder.example.json ./zig-out/bin/flint serve
+	BEDD_DRY_RUN=1 BEDD_TINDER=tinder.example.json ./zig-out/bin/bedd serve

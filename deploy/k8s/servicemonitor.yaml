@@ -1,11 +1,11 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: deepiri-flint
+  name: deepiri-bedd
 spec:
   selector:
     matchLabels:
-      app: deepiri-flint
+      app: deepiri-bedd
   endpoints:
     - port: admin
       path: /metrics

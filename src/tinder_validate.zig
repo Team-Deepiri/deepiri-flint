@@ -1,14 +1,13 @@
 const std = @import("std");
 const tinder = @import("tinder.zig");
 const skill = @import("skill/mod.zig");
-const topics_desc = @import("topics_desc.zig");
 
 pub const ValidationIssue = struct {
     level: enum { err, warn },
     message: []const u8,
 };
 
-/// Validate a tinder file: parse routes, warn on unknown skills / odd streams.
+/// Schema-only validation: required fields + known builtins (WASM names ending _skill ok).
 pub fn validateFile(allocator: std.mem.Allocator, path: []const u8) ![]ValidationIssue {
     var issues = std.ArrayList(ValidationIssue).init(allocator);
     errdefer {
@@ -30,10 +29,8 @@ pub fn validateFile(allocator: std.mem.Allocator, path: []const u8) ![]Validatio
         });
     }
 
-    // Known builtin names via listing into a set-like check
     var known = std.StringHashMap(void).init(allocator);
     defer known.deinit();
-    // seed from builtins by probing registry run list text
     var tmp = std.ArrayList(u8).init(allocator);
     defer tmp.deinit();
     try skill.Registry.listBuiltins(tmp.writer());
@@ -62,18 +59,6 @@ pub fn validateFile(allocator: std.mem.Allocator, path: []const u8) ![]Validatio
         if (r.publish_stream.len == 0) {
             try issues.append(.{ .level = .err, .message = try allocator.dupe(u8, "route with empty publish_stream") });
         }
-
-        var known_topic = false;
-        for (topics_desc.catalog) |d| {
-            if (std.mem.eql(u8, d.name, r.stream)) {
-                known_topic = true;
-                break;
-            }
-        }
-        if (!known_topic) {
-            const msg = try std.fmt.allocPrint(allocator, "stream '{s}' not in ModelKit catalog (ok if intentional)", .{r.stream});
-            try issues.append(.{ .level = .warn, .message = msg });
-        }
     }
 
     return try issues.toOwnedSlice();
@@ -86,7 +71,7 @@ pub fn printValidation(allocator: std.mem.Allocator, path: []const u8) !u8 {
         allocator.free(issues);
     }
     const out = std.io.getStdOut().writer();
-    try out.print("flint tinder validate: {s}\n", .{path});
+    try out.print("bedd tinder validate: {s}\n", .{path});
     var errors: u32 = 0;
     var warns: u32 = 0;
     for (issues) |i| {
@@ -100,14 +85,12 @@ pub fn printValidation(allocator: std.mem.Allocator, path: []const u8) !u8 {
 }
 
 test "validate example tinder" {
-    // may or may not exist depending on cwd; skip if missing
     std.fs.cwd().access("tinder.example.json", .{}) catch return;
     const issues = try validateFile(std.testing.allocator, "tinder.example.json");
     defer {
         for (issues) |i| std.testing.allocator.free(i.message);
         std.testing.allocator.free(issues);
     }
-    // Should parse without hard errors for our example
     for (issues) |i| {
         try std.testing.expect(i.level != .err);
     }

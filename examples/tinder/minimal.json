@@ -1,0 +1,11 @@
+{
+  "routes": [
+    {
+      "stream": "inbox",
+      "event_type": "*",
+      "skill": "echo",
+      "publish_stream": "outbox",
+      "publish_event_type": "bedd.strike.result"
+    }
+  ]
+}

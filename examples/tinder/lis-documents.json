@@ -1,3 +1,0 @@
-{
-  "routes": [{"stream":"document.artifacts","event_type":"*","skill":"artifact_claim","publish_stream":"inference-events","publish_event_type":"flint.artifact.claimed"},{"stream":"document.vectorize","event_type":"*","skill":"vectorize_normalize","publish_stream":"inference-events","publish_event_type":"flint.vectorize.normalized"},{"stream":"document.structured","event_type":"*","skill":"structured_compact","publish_stream":"inference-events","publish_event_type":"flint.structured.compacted"},{"stream":"document.training","event_type":"*","skill":"training_enrich","publish_stream":"pipeline.helox-training.structured","publish_event_type":"flint.training.enriched"}]
-}

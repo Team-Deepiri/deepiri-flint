@@ -32,7 +32,7 @@ pub fn getStringField(json: []const u8, key: []const u8) ?[]const u8 {
     return null;
 }
 
-/// Build a JSON object wrapping a payload under `data` with flint metadata.
+/// Build a JSON object wrapping a payload under `data` with bedd metadata.
 pub fn wrapStrikeResult(
     allocator: std.mem.Allocator,
     skill_name: []const u8,
@@ -42,7 +42,7 @@ pub fn wrapStrikeResult(
 ) ![]u8 {
     return std.fmt.allocPrint(
         allocator,
-        \\{{"schemaVersion":"flint.strike.v1","skill":"{s}","source":{{"stream":"{s}","entry_id":"{s}"}},"data":{s}}}
+        \\{{"schemaVersion":"bedd.strike.v1","skill":"{s}","source":{{"stream":"{s}","entry_id":"{s}"}},"data":{s}}}
     ,
         .{ skill_name, source_stream, source_entry, payload_json },
     );
@@ -50,8 +50,8 @@ pub fn wrapStrikeResult(
 
 test "getStringField finds event" {
     const json =
-        \\{"event":"document.artifacts.route","data":{}}
+        \\{"event":"inbox.route","data":{}}
     ;
     const v = getStringField(json, "event") orelse return error.TestExpectedEqual;
-    try std.testing.expectEqualStrings("document.artifacts.route", v);
+    try std.testing.expectEqualStrings("inbox.route", v);
 }

@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Idea for Flint
+about: Idea for Bedd
 ---
 **Problem**
 

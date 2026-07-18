@@ -1,9 +1,9 @@
 ---
 name: Bug report
-about: Something broken in Flint
+about: Something broken in Bedd
 ---
 **Describe the bug**
 
-**Flint version** (`flint version`)
+**Bedd version** (`bedd version`)
 
 **Steps**

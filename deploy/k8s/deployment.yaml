@@ -1,24 +1,24 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: deepiri-flint
+  name: deepiri-bedd
 spec:
   replicas: 1
   selector:
-    matchLabels: { app: deepiri-flint }
+    matchLabels: { app: deepiri-bedd }
   template:
     metadata:
-      labels: { app: deepiri-flint }
+      labels: { app: deepiri-bedd }
     spec:
       containers:
-        - name: flint
-          image: ghcr.io/team-deepiri/deepiri-flint:0.3.0
+        - name: bedd
+          image: ghcr.io/team-deepiri/deepiri-bedd:0.3.0
           args: ["serve"]
           ports:
             - containerPort: 9108
               name: admin
           env:
-            - name: FLINT_SUGAR_GLIDER_URL
-              value: http://synapse-sidecar:8081
-            - name: FLINT_ADMIN_PORT
+            - name: BEDD_BUS_URL
+              value: http://127.0.0.1:8081
+            - name: BEDD_ADMIN_PORT
               value: "9108"

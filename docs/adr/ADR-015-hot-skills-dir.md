@@ -1,14 +1,14 @@
-# ADR-015: WASM skills loaded lazily from FLINT_SKILLS_DIR
+# ADR-015: WASM skills loaded lazily from BEDD_SKILLS_DIR
 
 ## Status
 Accepted
 
 ## Context
-Flint must fit the Deepiri bus (Sugar Glider + ModelKit topics) without becoming another Redis client farm.
+Bedd is a portable stream skill runtime: opaque routes, pluggable HTTP bus, native/WASM skills.
 
 ## Decision
-WASM skills loaded lazily from FLINT_SKILLS_DIR.
+WASM skills loaded lazily from BEDD_SKILLS_DIR.
 
 ## Consequences
-- Aligns with Cyrex / Helox / LIS stream contracts
+- Hosts supply route files and bus URL; Bedd stays topic-agnostic
 - Keeps the runtime small and operable

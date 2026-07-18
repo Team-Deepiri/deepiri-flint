@@ -1,5 +1,4 @@
 const std = @import("std");
-const topics = @import("topics.zig");
 
 pub const Route = struct {
     stream: []const u8,
@@ -53,28 +52,15 @@ pub const Tinder = struct {
     }
 };
 
+/// Minimal default: inbox → echo → outbox. Hosts override via BEDD_TINDER.
 pub fn defaultTinder(allocator: std.mem.Allocator) !Tinder {
-    const routes = try allocator.alloc(Route, 3);
+    const routes = try allocator.alloc(Route, 1);
     routes[0] = .{
-        .stream = try allocator.dupe(u8, topics.DOCUMENT_ARTIFACTS),
+        .stream = try allocator.dupe(u8, "inbox"),
         .event_type = try allocator.dupe(u8, "*"),
         .skill = try allocator.dupe(u8, "echo"),
-        .publish_stream = try allocator.dupe(u8, topics.INFERENCE_EVENTS),
-        .publish_event_type = try allocator.dupe(u8, "flint.strike.result"),
-    };
-    routes[1] = .{
-        .stream = try allocator.dupe(u8, topics.DOCUMENT_VECTORIZE),
-        .event_type = try allocator.dupe(u8, "*"),
-        .skill = try allocator.dupe(u8, "passthrough"),
-        .publish_stream = try allocator.dupe(u8, topics.INFERENCE_EVENTS),
-        .publish_event_type = try allocator.dupe(u8, "flint.vectorize.seen"),
-    };
-    routes[2] = .{
-        .stream = try allocator.dupe(u8, topics.PIPELINE_PRESSURE_EVENTS),
-        .event_type = try allocator.dupe(u8, "*"),
-        .skill = try allocator.dupe(u8, "pressure_tag"),
-        .publish_stream = try allocator.dupe(u8, topics.PIPELINE_METRICS),
-        .publish_event_type = try allocator.dupe(u8, "flint.pressure.tagged"),
+        .publish_stream = try allocator.dupe(u8, "outbox"),
+        .publish_event_type = try allocator.dupe(u8, "bedd.strike.result"),
     };
     return .{ .allocator = allocator, .routes = routes };
 }
@@ -99,7 +85,6 @@ pub fn loadOrDefault(allocator: std.mem.Allocator, path: ?[]const u8) !Tinder {
     return defaultTinder(allocator);
 }
 
-/// Minimal JSON array-of-objects parser for tinder routes.
 fn parseTinderJson(allocator: std.mem.Allocator, blob: []const u8) !Tinder {
     var routes = std.ArrayList(Route).init(allocator);
     errdefer {
@@ -113,7 +98,6 @@ fn parseTinderJson(allocator: std.mem.Allocator, blob: []const u8) !Tinder {
         routes.deinit();
     }
 
-    // Find "routes": [
     const key = std.mem.indexOf(u8, blob, "\"routes\"") orelse return error.InvalidTinder;
     var i = key;
     while (i < blob.len and blob[i] != '[') : (i += 1) {}
@@ -156,8 +140,8 @@ fn parseTinderJson(allocator: std.mem.Allocator, blob: []const u8) !Tinder {
         const stream = jsonx.getStringField(obj, "stream") orelse continue;
         const skill = jsonx.getStringField(obj, "skill") orelse continue;
         const event_type = jsonx.getStringField(obj, "event_type") orelse "*";
-        const publish_stream = jsonx.getStringField(obj, "publish_stream") orelse topics.INFERENCE_EVENTS;
-        const publish_event_type = jsonx.getStringField(obj, "publish_event_type") orelse "flint.strike.result";
+        const publish_stream = jsonx.getStringField(obj, "publish_stream") orelse "outbox";
+        const publish_event_type = jsonx.getStringField(obj, "publish_event_type") orelse "bedd.strike.result";
 
         try routes.append(.{
             .stream = try allocator.dupe(u8, stream),
@@ -175,17 +159,17 @@ fn parseTinderJson(allocator: std.mem.Allocator, blob: []const u8) !Tinder {
     };
 }
 
-test "default tinder matches document.artifacts" {
+test "default tinder matches inbox" {
     var t = try defaultTinder(std.testing.allocator);
     defer t.deinit();
-    const r = t.match(topics.DOCUMENT_ARTIFACTS, "document.artifacts.route");
+    const r = t.match("inbox", "anything");
     try std.testing.expect(r != null);
     try std.testing.expectEqualStrings("echo", r.?.skill);
 }
 
 test "parse tinder json" {
     const sample =
-        \\{"routes":[{"stream":"document.artifacts","event_type":"*","skill":"echo","publish_stream":"inference-events","publish_event_type":"flint.strike.result"}]}
+        \\{"routes":[{"stream":"inbox","event_type":"*","skill":"echo","publish_stream":"outbox","publish_event_type":"bedd.strike.result"}]}
     ;
     var t = try parseTinderJson(std.testing.allocator, sample);
     defer t.deinit();

@@ -1,14 +1,14 @@
-# ADR-006: FLINT_DRY_RUN skips publish and ack side effects
+# ADR-006: BEDD_DRY_RUN skips publish and ack side effects
 
 ## Status
 Accepted
 
 ## Context
-Flint must fit the Deepiri bus (Sugar Glider + ModelKit topics) without becoming another Redis client farm.
+Bedd is a portable stream skill runtime: opaque routes, pluggable HTTP bus, native/WASM skills.
 
 ## Decision
-FLINT_DRY_RUN skips publish and ack side effects.
+BEDD_DRY_RUN skips publish and ack side effects.
 
 ## Consequences
-- Aligns with Cyrex / Helox / LIS stream contracts
+- Hosts supply route files and bus URL; Bedd stays topic-agnostic
 - Keeps the runtime small and operable

@@ -1,5 +1,6 @@
 //! Test root — re-exports modules under test.
 pub const bus = @import("bus.zig");
+pub const bus_mock = @import("bus_mock.zig");
 pub const config = @import("config.zig");
 pub const tinder = @import("tinder.zig");
 pub const ember = @import("ember.zig");
@@ -10,8 +11,6 @@ pub const eval = @import("eval.zig");
 pub const builtins_test = @import("skill/builtins_test.zig");
 pub const jsonx = @import("jsonx.zig");
 pub const json_path = @import("json/path.zig");
-pub const topics = @import("topics.zig");
-pub const topics_desc = @import("topics_desc.zig");
 pub const backoff = @import("util/backoff.zig");
 pub const timeutil = @import("util/timeutil.zig");
 pub const hash = @import("util/hash.zig");
@@ -19,13 +18,13 @@ pub const json_builder = @import("json/builder.zig");
 pub const json_escape = @import("json/escape.zig");
 pub const prometheus = @import("admin/prometheus.zig");
 pub const shutdown = @import("shutdown.zig");
-pub const mock_sidecar = @import("mock_sidecar.zig");
 pub const publish_retry = @import("publish_retry.zig");
 pub const tinder_validate = @import("tinder_validate.zig");
 pub const integration_test = @import("integration_test.zig");
 
 test {
     _ = bus;
+    _ = bus_mock;
     _ = config;
     _ = tinder;
     _ = ember;
@@ -36,8 +35,6 @@ test {
     _ = builtins_test;
     _ = jsonx;
     _ = json_path;
-    _ = topics;
-    _ = topics_desc;
     _ = backoff;
     _ = timeutil;
     _ = hash;
@@ -45,7 +42,6 @@ test {
     _ = json_escape;
     _ = prometheus;
     _ = shutdown;
-    _ = mock_sidecar;
     _ = publish_retry;
     _ = tinder_validate;
     _ = integration_test;

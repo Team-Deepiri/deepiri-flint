@@ -1,32 +1,25 @@
 {
   "routes": [
     {
-      "stream": "document.artifacts",
+      "stream": "inbox",
       "event_type": "*",
       "skill": "echo",
-      "publish_stream": "inference-events",
-      "publish_event_type": "flint.strike.result"
+      "publish_stream": "outbox",
+      "publish_event_type": "bedd.strike.result"
     },
     {
-      "stream": "document.vectorize",
-      "event_type": "*",
-      "skill": "passthrough",
-      "publish_stream": "inference-events",
-      "publish_event_type": "flint.vectorize.seen"
+      "stream": "inbox",
+      "event_type": "secure.*",
+      "skill": "redact",
+      "publish_stream": "outbox",
+      "publish_event_type": "bedd.redacted"
     },
     {
-      "stream": "document.training",
-      "event_type": "*",
-      "skill": "document_fanout",
-      "publish_stream": "pipeline.helox-training.structured",
-      "publish_event_type": "flint.document.fanout"
-    },
-    {
-      "stream": "pipeline.pressure.events",
-      "event_type": "*",
-      "skill": "pressure_tag",
-      "publish_stream": "pipeline.metrics",
-      "publish_event_type": "flint.pressure.tagged"
+      "stream": "inbox",
+      "event_type": "fingerprint.*",
+      "skill": "fingerprint",
+      "publish_stream": "outbox",
+      "publish_event_type": "bedd.fingerprinted"
     }
   ]
 }

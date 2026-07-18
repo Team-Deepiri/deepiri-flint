@@ -1,4 +1,4 @@
-# Dockerfile for deepiri-flint
+# Dockerfile for deepiri-bedd
 
 FROM debian:bookworm-slim AS build
 RUN apt-get update && apt-get install -y --no-install-recommends curl xz-utils ca-certificates \
@@ -14,10 +14,10 @@ RUN zig build -Doptimize=ReleaseSafe
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
   && rm -rf /var/lib/apt/lists/*
-COPY --from=build /src/zig-out/bin/flint /usr/local/bin/flint
-COPY --from=build /src/zig-out/skills /opt/flint/skills
-COPY tinder.example.json /opt/flint/tinder.example.json
-ENV FLINT_SKILLS_DIR=/opt/flint/skills
-ENV FLINT_TINDER=/opt/flint/tinder.example.json
-ENTRYPOINT ["flint"]
+COPY --from=build /src/zig-out/bin/bedd /usr/local/bin/bedd
+COPY --from=build /src/zig-out/skills /opt/bedd/skills
+COPY tinder.example.json /opt/bedd/tinder.example.json
+ENV BEDD_SKILLS_DIR=/opt/bedd/skills
+ENV BEDD_TINDER=/opt/bedd/tinder.example.json
+ENTRYPOINT ["bedd"]
 CMD ["serve"]

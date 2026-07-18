@@ -1,7 +1,7 @@
 const std = @import("std");
 const posix = std.posix;
 
-/// In-process fake Sugar Glider HTTP API for integration tests / local demos.
+/// In-process fake HTTP bus HTTP API for integration tests / local demos.
 /// Supports /healthz, /readyz, /v1/publish, /v1/read, /v1/ack.
 pub const MockSidecar = struct {
     allocator: std.mem.Allocator,
@@ -271,14 +271,14 @@ test "mock sidecar read returns seeded event" {
     var mock = MockSidecar.init(std.testing.allocator, 19109);
     try mock.start();
     defer mock.deinit();
-    try mock.seed("document.artifacts", "document.artifacts.route", "{\"x\":1}");
+    try mock.seed("inbox", "inbox.route", "{\"x\":1}");
 
     var client = std.http.Client{ .allocator = std.testing.allocator };
     defer client.deinit();
     var body = std.ArrayList(u8).init(std.testing.allocator);
     defer body.deinit();
     const payload =
-        \\{"stream":"document.artifacts","consumer_group":"g","consumer_name":"c","count":10,"block_ms":100}
+        \\{"stream":"inbox","consumer_group":"g","consumer_name":"c","count":10,"block_ms":100}
     ;
     const res = try client.fetch(.{
         .location = .{ .url = "http://127.0.0.1:19109/v1/read" },
@@ -291,6 +291,6 @@ test "mock sidecar read returns seeded event" {
         .max_append_size = 64 * 1024,
     });
     try std.testing.expect(res.status == .ok);
-    try std.testing.expect(std.mem.indexOf(u8, body.items, "document.artifacts") != null);
+    try std.testing.expect(std.mem.indexOf(u8, body.items, "inbox") != null);
     try std.testing.expect(std.mem.indexOf(u8, body.items, "\"x\":1") != null);
 }

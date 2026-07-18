@@ -71,7 +71,8 @@ pub const WasmSkill = struct {
 
     fn linkHost(self: *WasmSkill) !void {
         const la = c.m3_LinkRawFunctionEx(self.module, "flint", "host_alloc", "i(i)", &hostAlloc, self);
-        if (la != null) std.log.warn("link host_alloc: {s}", .{la});
+        // Optional import — many skills only need host_set_result.
+        _ = la;
 
         const lr = c.m3_LinkRawFunctionEx(self.module, "flint", "host_set_result", "v(ii)", &hostSetResult, self);
         if (lr != null) std.log.warn("link host_set_result: {s}", .{lr});

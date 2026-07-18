@@ -6,7 +6,7 @@ A single Zig binary: **consume** Sugar Glider streams → **run** a skill (nativ
 
 ## Status
 
-**v0.3 (strike)** — full serve loop, admin metrics, DLQ, Helm, 15+ builtins, wasm3 skills.
+**v0.4 (ember)** — full serve loop, admin metrics, DLQ, Helm, 15+ builtins, wasm3 skills.
 
 ## Quick start
 
@@ -19,6 +19,7 @@ zig build test
 ./zig-out/bin/flint doctor
 ./zig-out/bin/flint skills
 ./zig-out/bin/flint strike document.artifacts document.artifacts.route echo
+./zig-out/bin/flint eval redact '{"token":"secret"}'
 
 # Live consumer (needs Sugar Glider)
 export FLINT_SUGAR_GLIDER_URL=http://127.0.0.1:8081

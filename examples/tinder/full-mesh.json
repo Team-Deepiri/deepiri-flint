@@ -1,0 +1,3 @@
+{
+  "routes": [{"stream":"document.artifacts","event_type":"*","skill":"echo","publish_stream":"inference-events","publish_event_type":"flint.strike.result"},{"stream":"document.vectorize","event_type":"*","skill":"passthrough","publish_stream":"inference-events","publish_event_type":"flint.vectorize.seen"},{"stream":"pipeline.pressure.events","event_type":"*","skill":"pressure_tag","publish_stream":"pipeline.metrics","publish_event_type":"flint.pressure.tagged"},{"stream":"model-events","event_type":"*","skill":"model_reload_hook","publish_stream":"platform-events","publish_event_type":"flint.model.reload.seen"},{"stream":"training-events","event_type":"*","skill":"schema_gate","publish_stream":"platform-events","publish_event_type":"flint.training.gated"}]
+}

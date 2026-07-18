@@ -7,6 +7,7 @@ pub const strike = @import("strike.zig");
 pub const skill = @import("skill/mod.zig");
 pub const jsonx = @import("jsonx.zig");
 pub const topics = @import("topics.zig");
+pub const topics_desc = @import("topics_desc.zig");
 pub const backoff = @import("util/backoff.zig");
 pub const timeutil = @import("util/timeutil.zig");
 pub const hash = @import("util/hash.zig");
@@ -25,6 +26,7 @@ test {
     _ = skill;
     _ = jsonx;
     _ = topics;
+    _ = topics_desc;
     _ = backoff;
     _ = timeutil;
     _ = hash;

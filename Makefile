@@ -28,3 +28,7 @@ bench: build
 .PHONY: doctor
 doctor: build
 	./zig-out/bin/flint doctor
+
+.PHONY: serve-dry
+serve-dry: build
+	FLINT_DRY_RUN=1 FLINT_TINDER=tinder.example.json ./zig-out/bin/flint serve

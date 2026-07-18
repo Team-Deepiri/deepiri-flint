@@ -7,6 +7,11 @@ on:
     branches: [main, dev]
   schedule:
     - cron: "17 7 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: codeql-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   actions: read
@@ -17,6 +22,7 @@ jobs:
   analyze:
     name: Analyze (actions)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
@@ -32,3 +38,5 @@ jobs:
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:actions"

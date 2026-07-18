@@ -5,7 +5,11 @@ pub const tinder = @import("tinder.zig");
 pub const ember = @import("ember.zig");
 pub const strike = @import("strike.zig");
 pub const skill = @import("skill/mod.zig");
+pub const skill_common = @import("skill/common.zig");
+pub const eval = @import("eval.zig");
+pub const builtins_test = @import("skill/builtins_test.zig");
 pub const jsonx = @import("jsonx.zig");
+pub const json_path = @import("json/path.zig");
 pub const topics = @import("topics.zig");
 pub const topics_desc = @import("topics_desc.zig");
 pub const backoff = @import("util/backoff.zig");
@@ -16,7 +20,6 @@ pub const json_escape = @import("json/escape.zig");
 pub const prometheus = @import("admin/prometheus.zig");
 pub const shutdown = @import("shutdown.zig");
 
-
 test {
     _ = bus;
     _ = config;
@@ -24,7 +27,11 @@ test {
     _ = ember;
     _ = strike;
     _ = skill;
+    _ = skill_common;
+    _ = eval;
+    _ = builtins_test;
     _ = jsonx;
+    _ = json_path;
     _ = topics;
     _ = topics_desc;
     _ = backoff;

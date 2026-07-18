@@ -4,6 +4,8 @@ const config = @import("config.zig");
 const serve = @import("serve.zig");
 const skill = @import("skill/mod.zig");
 const strike = @import("strike.zig");
+const eval = @import("eval.zig");
+const shutdown = @import("shutdown.zig");
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -45,8 +47,23 @@ pub fn main() !void {
         try strike.dryRun(allocator, cfg, stream, event_type, skill_name);
         return;
     }
+    if (eql(command, "eval")) {
+        const skill_name = args.next() orelse {
+            try std.io.getStdErr().writer().writeAll("usage: flint eval <skill> '<json>'|@file.json\n");
+            std.process.exit(2);
+        };
+        const input = args.next() orelse "{}";
+        try eval.evalFromArgs(allocator, cfg.skills_dir, skill_name, input);
+        return;
+    }
     if (eql(command, "serve")) {
         try serve.run(allocator, &cfg);
+        return;
+    }
+    if (eql(command, "stop-check")) {
+        // Internal: verify signal module links
+        shutdown.installSignals();
+        try std.io.getStdOut().writer().writeAll("signals installed\n");
         return;
     }
 
@@ -68,6 +85,7 @@ fn printHelp() !void {
         \\  flint version
         \\  flint doctor
         \\  flint skills
+        \\  flint eval <skill> '<json>'|@file.json
         \\  flint strike [stream] [event_type] [skill]
         \\  flint serve
         \\
@@ -83,6 +101,10 @@ fn printHelp() !void {
         \\  FLINT_READ_COUNT         max entries per read (default 10)
         \\  FLINT_ADMIN_PORT         health/metrics port (default 9108)
         \\  FLINT_LOG_LEVEL          debug|info|warn|error
+        \\
+        \\Signals (serve):
+        \\  SIGTERM / SIGINT  graceful stop
+        \\  SIGHUP            reload tinder routes
         \\
     );
 }

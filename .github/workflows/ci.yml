@@ -15,10 +15,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Zig
-        uses: mlugg/setup-zig@v1
-        with:
-          version: 0.13.0
+      - name: Install Zig 0.13.0
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/zig.tar.xz \
+            "https://ziglang.org/download/0.13.0/zig-linux-x86_64-0.13.0.tar.xz"
+          sudo tar -C /usr/local -xf /tmp/zig.tar.xz
+          echo "/usr/local/zig-linux-x86_64-0.13.0" >> "$GITHUB_PATH"
+          zig version
 
       - name: Build
         run: zig build -Doptimize=ReleaseSafe
